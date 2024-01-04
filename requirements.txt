@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+sqlalchemy
+databases
+aiomysql
+mysqlclient
+orm
