@@ -1,10 +1,12 @@
 import sqlalchemy
 from databases import Database
+from dotenv import load_dotenv
+import os
 
-from app.config import project
+load_dotenv()
+               
+DATABASE_URL = f"{os.getenv("DB_MODE")}://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}:{os.getenv("DB_PORT")}/{os.getenv('DB_DATABASE')}?charset=utf8"
 
-DATABASE_URL = f"{project.DB_MODE}://{project.DB_USER}:{project.DB_PSWD}@{project.DB_HOST}/" \
-               f"{project.DB_NAME}?charset=utf8"
 
 database = Database(DATABASE_URL)
 

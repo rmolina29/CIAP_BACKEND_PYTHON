@@ -4,7 +4,7 @@ import uvicorn
 from app.parametros.gerencia  import gerencia_router as router
 # from tortoise.contrib.fastapi import register_tortoise
 # from app.config import project
-# from app.database.db import database
+from app.database.db import database
 # from app.utils import load_app
 
 app = FastAPI(debug=True)
@@ -21,17 +21,9 @@ app.include_router(router.gerencia, prefix="/parametros/gerencia_data", tags=["g
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
+    print(database)
 
 
-
-# @app.on_event("startup")
-# async def startup():
-#     await database.connect()
-
-
-# @app.on_event("shutdown")
-# async def shutdown():
-#     await database.disconnect()
 
 
 # sub_app_names = [i.stem for i in project.SUB_APP_DIR.iterdir()]
