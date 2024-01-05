@@ -41,6 +41,3 @@ class ProyectoUnidadGerencia(Base):
             "responsable_id":self.responsable_id
         }
 
-
-    def __str__(self):
-        return self.nombre
