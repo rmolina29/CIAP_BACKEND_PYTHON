@@ -1,17 +1,17 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-
+from app.parametros.gerencia.gerencia_servicio import Gerencia
 
 gerencia = APIRouter()
 
-@gerencia.get('/obtener')
+@gerencia.get("/obtener")
 def obtener_gerencia():
     try:
-        data = {"message": "Hello, FastAPI prueba "}
+        gerenciaModelo = Gerencia()
+        informacion_gerencia = gerenciaModelo.obtener()
         status_code = 200
-        return JSONResponse(content=data, status_code=status_code)
+        return JSONResponse(content=informacion_gerencia, status_code=status_code)
+
     except Exception as e:
         print(e)
-        
-
-
+        return JSONResponse(content={"error": str(e)}, status_code=500)
