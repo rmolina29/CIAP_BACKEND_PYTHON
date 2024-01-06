@@ -20,10 +20,15 @@ class Gerencia:
 
             obtener_gerencia_existente = self.obtener()
 
-            info = self.comparacion_gerencia(data_gerencia, obtener_gerencia_existente)
+            novedades_de_gerencia = self.comparacion_gerencia(
+                data_gerencia, obtener_gerencia_existente
+            )
 
-            print(info)
-            # session.bulk_insert_mappings(ProyectoUnidadGerencia, data_gerencia)
+            # informacion a insertar
+            lista_insert = novedades_de_gerencia.get("insert")
+            gerencia_update = novedades_de_gerencia.get("update")
+            
+            # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
             # session.commit()
             return "Multi-insert realizado con éxito."
         except Exception as e:
@@ -35,12 +40,14 @@ class Gerencia:
     def comparacion_gerencia(self, data, gerencia):
         try:
             if len(data) == len(gerencia):
+                # actualizar informacion si hay diferencdias en los archivos, realizamos un
                 return "listas iguales"
             else:
-                diferentes_en_lista1 = [item for item in data if item not in gerencia]
-                return {
-                    "Elementos en lista1 que no están en lista2:": diferentes_en_lista1
-                }
+                # si son diferentes las listas, es decir hay nuevas insercion las obtiene y las insertas (solamente las que seran diferentes)
+                gerencias_nuevas = [item for item in data if item not in gerencia]
+
+                gerencias_actualizacion = [item for item in data if item in gerencia]
+                return {"insert": gerencias_nuevas, "update": gerencias_actualizacion}
 
         except Exception as e:
             raise (f"Error al realizar la comparacion: {str(e)}")
