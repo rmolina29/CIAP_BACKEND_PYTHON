@@ -21,7 +21,7 @@ app.add_middleware(
 
 
 app.include_router(
-    router.gerencia, prefix="/parametros/gerencia_data", tags=["gerencia"]
+    router.gerencia, prefix="/parametros/gerencia", tags=["gerencia"]
 )
 # app.include_router(item.router, prefix="/items", tags=["items"])
 

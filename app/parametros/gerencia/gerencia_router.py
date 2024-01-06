@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from app.parametros.gerencia.gerencia_servicio import Gerencia
+from app.parametros.gerencia.esquema.archivo_esquema import Archivo
+from typing import List
 
 gerencia = APIRouter()
 
@@ -18,10 +20,12 @@ def obtener_gerencia():
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@gerencia.post("archivos")
-def subir_archivo():
+@gerencia.post("/subir-archivo")
+def subir_archivo(datosArchivo:List[Archivo]):
     try:
-        pass
+        gerenciaModelo = Gerencia()
+        enviar_informacion = gerenciaModelo.registrar_informacion(datosArchivo)
+        return JSONResponse(content=enviar_informacion, status_code=201)
     except Exception as e:
         print(e)
         return JSONResponse(content={"error": str(e)}, status_code=500)

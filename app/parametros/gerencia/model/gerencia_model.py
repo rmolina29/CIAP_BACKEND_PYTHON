@@ -35,7 +35,6 @@ class ProyectoUnidadGerencia(Base):
     
     def to_dict(self):
         return {
-            "id": self.id,
             "unidad_gerencia_id_erp": self.unidad_gerencia_id_erp,
             "nombre": self.nombre,
             "responsable_id":self.responsable_id
