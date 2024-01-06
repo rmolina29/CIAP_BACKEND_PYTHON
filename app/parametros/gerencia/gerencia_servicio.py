@@ -47,6 +47,7 @@ class Gerencia:
                 gerencias_nuevas = [item for item in data if item not in gerencia]
 
                 gerencias_actualizacion = [item for item in data if item in gerencia]
+                
                 return {"insert": gerencias_nuevas, "update": gerencias_actualizacion}
 
         except Exception as e:
