@@ -6,4 +6,4 @@ from pydantic import BaseModel
 class Archivo(BaseModel):
     unidad_gerencia_id_erp: str
     nombre: str
-    responsable_id: int
+    NIT: int
