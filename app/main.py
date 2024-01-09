@@ -1,11 +1,8 @@
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
-from app.parametros.gerencia import gerencia_router as router
-
-# from tortoise.contrib.fastapi import register_tortoise
-# from app.config import project
-from app.database.db import database
+from app.parametros.gerencia import gerencia_router as router_g
+from app.parametros.direccion import direccion_router as router_d
 
 # from app.utils import load_app
 
@@ -20,21 +17,13 @@ app.add_middleware(
 )
 
 # Crea un enrutador para tus rutas con el prefijo "/fts"
-fts_router = APIRouter(prefix="/fts")
-
-
-# Agrega tus rutas al enrutador con el prefijo
-@fts_router.get("/hello")
-async def fts_some_path():
-    return {"message": "Hello from /hello"}
-
-@fts_router.get("/parametros/gerencia")
-async def fts_some_path():
-     return {"message": "Subir Archivos"}
-
-
-
-app.include_router(fts_router)
+app.include_router(
+    router_g.gerencia, prefix="/fts/parametros/gerencia"
+)
+app.include_router(
+    router_d.direccion, prefix="/fts/parametros/direccion"
+)
+# app.include_router(item.router, prefix="/items", tags=["items"])
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)

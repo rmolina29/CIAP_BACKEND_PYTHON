@@ -5,22 +5,22 @@ from fastapi import APIRouter,File, UploadFile
 from fastapi.responses import JSONResponse
 from app.parametros.gerencia.gerencia_servicio import Gerencia
 
-gerencia = APIRouter()
+gerencia = APIRouter(tags=['Gerencia'])
 
 
-@gerencia.get("/obtener")
-def obtener_gerencia():
-    try:
-        gerenciaModelo = Gerencia()
-        informacion_gerencia = gerenciaModelo.obtener()
-        status_code = 200
-        return JSONResponse(content=informacion_gerencia, status_code=status_code)
-    except Exception as e:
-        print(e)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+# @gerencia.get("/obtener")
+# def obtener_gerencia():
+#     try:
+#         gerenciaModelo = Gerencia()
+#         informacion_gerencia = gerenciaModelo.obtener()
+#         status_code = 200
+#         return JSONResponse(content=informacion_gerencia, status_code=status_code)
+#     except Exception as e:
+#         print(e)
+#         return JSONResponse(content={"error": str(e)}, status_code=500)
     
 @gerencia.post("/subir-archivo")
-async def subir_archivo_(file: UploadFile = File(...)):
+async def subir_archivo(file: UploadFile = File(...)):
     try:
         df = pd.read_excel(file.file)
               # Imprimir las columnas reales del DataFrame
@@ -36,9 +36,9 @@ async def subir_archivo_(file: UploadFile = File(...)):
         # Convertir a un diccionario en formato de registros
         result_dict = selected_data.to_dict(orient="records")
 
-        gerenciaModelo = Gerencia(result_dict)
+        servicio_gerencia = Gerencia(result_dict)
         
-        enviar_informacion = gerenciaModelo.registrar_informacion()
+        enviar_informacion = servicio_gerencia.registrar_informacion()
 
         # return enviar_informacion
         return JSONResponse(content=enviar_informacion, media_type="application/json")
@@ -47,15 +47,5 @@ async def subir_archivo_(file: UploadFile = File(...)):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-# @gerencia.post("/subir-archivo")
-# def subir_archivo(datosArchivo:List[Archivo]):
-#     try:
-#         gerenciaModelo = Gerencia(datosArchivo)
-        
-#         enviar_informacion = gerenciaModelo.registrar_informacion()
-#         return JSONResponse(content=enviar_informacion, status_code=201)
-#     except Exception as e:
-#         print(e)
-#         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
