@@ -142,4 +142,24 @@ cython_debug/
 
 # pycharm
 .idea/
-
+myenv/Include/site/python3.11/greenlet/greenlet.h
+myenv/pyvenv.cfg
+myenv/Scripts/activate
+myenv/Scripts/activate.bat
+myenv/Scripts/Activate.ps1
+myenv/Scripts/chardetect.exe
+myenv/Scripts/cookiecutter.exe
+myenv/Scripts/deactivate.bat
+myenv/Scripts/dotenv.exe
+myenv/Scripts/f2py.exe
+myenv/Scripts/fastapi.exe
+myenv/Scripts/markdown-it.exe
+myenv/Scripts/normalizer.exe
+myenv/Scripts/pip.exe
+myenv/Scripts/pip3.11.exe
+myenv/Scripts/pip3.exe
+myenv/Scripts/pygmentize.exe
+myenv/Scripts/python.exe
+myenv/Scripts/pythonw.exe
+myenv/Scripts/slugify.exe
+myenv/Scripts/uvicorn.exe
