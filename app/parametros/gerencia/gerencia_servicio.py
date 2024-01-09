@@ -1,4 +1,3 @@
-from ast import Dict
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
@@ -26,25 +25,24 @@ class Gerencia:
         try:
             novedades_de_gerencia = self.comparacion_gerencia()
             # informacion a insertar
-            lista_insert = novedades_de_gerencia.get("insert")
-            gerencia_update = novedades_de_gerencia.get("update")
-            sin_cambios = novedades_de_gerencia.get("excepciones")
-            excepciones_id_usuario = novedades_de_gerencia.get("id_usuario")
+            lista_insert = novedades_de_gerencia.get("insercion_datos")
+            gerencia_update = novedades_de_gerencia.get("actualizacion_datos")
+            sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")
+            excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")
             
-            historial_registro = self.insertar_inforacion(lista_insert)
-            historial_actualizar = self.actualizar_informacion(gerencia_update)
+            log_transaccion_registro = self.insertar_inforacion(lista_insert)
+            log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
             
-            
-            historial_registro_gerencia = {
-                "historial": {
-                    "gerencia_registradas": historial_registro,
-                    "gerencias_actualizadas": historial_actualizar,
-                    "gerencias_no_actualizadas": sin_cambios,
+            log_transaccion_registro_gerencia = {
+                "log_transaccion": {
+                    "gerencia_registradas": log_transaccion_registro,
+                    "gerencias_actualizadas": log_transaccion_actualizar,
+                    "gerencias_sin_actualizadas": sin_cambios,
                     "gerencia_nit_no_existe": excepciones_id_usuario
                 }
             }
        
-            return historial_registro_gerencia
+            return log_transaccion_registro_gerencia
         
         except SQLAlchemyError as e:
             session.rollback()
@@ -57,10 +55,10 @@ class Gerencia:
             gerencias_nuevas, gerencias_actualizacion, no_sufieron_cambios, excepciones_id_usuario = self.filtrar_gerencias()
             
             resultado = {
-                "insert": gerencias_nuevas,
-                "update": gerencias_actualizacion,
-                'excepciones': no_sufieron_cambios,
-                'id_usuario': excepciones_id_usuario
+                "insercion_datos": gerencias_nuevas,
+                "actualizacion_datos": gerencias_actualizacion,
+                'excepciones_campos_unicos': no_sufieron_cambios,
+                'exepcion_id_usuario': excepciones_id_usuario
             }
 
             return resultado
@@ -70,30 +68,29 @@ class Gerencia:
 
     
     def filtrar_gerencias(self):
-        gerencias_nuevas = self.filtrar_gerencias_nuevas()
-        gerencias_actualizacion = self.obtener_gerencias_actualizacion()
+        
         excepciones_gerencia = self.obtener_no_sufrieron_cambios()
         excepciones_id_usuario = self.excepciones_id_usuario()
+        gerencias_nuevas = self.filtrar_gerencias_nuevas(excepciones_gerencia)
+        gerencias_actualizacion = self.obtener_gerencias_actualizacion(excepciones_gerencia)
 
-        actualizacion = [
-            item for item in gerencias_actualizacion
-            if {'unidad_gerencia_id_erp': item['unidad_gerencia_id_erp'], 'nombre': item['nombre']} not in excepciones_gerencia
-        ]
-        
-        return gerencias_nuevas, actualizacion, excepciones_gerencia,excepciones_id_usuario
+        return gerencias_nuevas, gerencias_actualizacion, excepciones_gerencia,excepciones_id_usuario
     
 
     #  esta funcion sirve para validar lo que se envia en excel contra lo que recibe en la base de datos
     #  sacando asi los valores nuevos qeu no existen ninguno en la base de datos es decir se insertan
-    def filtrar_gerencias_nuevas(self):
+    def filtrar_gerencias_nuevas(self,excepciones_gerencia):
             gerencias_nuevas = [item for item in self.__gerencia if (
                 item["responsable_id"] is not None and
                 (item["unidad_gerencia_id_erp"] or item["nombre"]) not in {(g["unidad_gerencia_id_erp"] or g["nombre"]) for g in self.__obtener_gerencia_existente}
             )]
-            return gerencias_nuevas
+            
+            # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
+            filtro_gerencia_registro = self.gerencias_mapeo_excepciones(gerencias_nuevas,excepciones_gerencia)
+            return filtro_gerencia_registro
 
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
-    def obtener_gerencias_actualizacion(self):
+    def obtener_gerencias_actualizacion(self,excepciones_gerencia):
         gerencias_actualizacion = [
                 {
                     'id': g["id"],
@@ -109,7 +106,9 @@ class Gerencia:
                     item["unidad_gerencia_id_erp"].strip().lower() == g["unidad_gerencia_id_erp"].strip().lower()
                 )
             ]
-        return gerencias_actualizacion
+        
+        filtrado_actualizacion = self.gerencias_mapeo_excepciones(gerencias_actualizacion,excepciones_gerencia)
+        return filtrado_actualizacion
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
     #  se lleva un registro de estos
@@ -193,7 +192,19 @@ class Gerencia:
             
             session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
             session.commit()
-            
             return actualizacion_gerencia
         
         return 'No se han actualizado datos'
+
+    
+    # se realiza un mapeo para realizar el filtro de la gerencia actualizar a registrar
+    # y me envia la lista de gerencias que se le va realizar la insercion o la actualizacion
+    def gerencias_mapeo_excepciones(self,gerencia,excepciones):
+        # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
+        filtro_gerencia = [item for item in gerencia
+            if {'unidad_gerencia_id_erp': item['unidad_gerencia_id_erp'], 
+                'nombre': item['nombre']} not in excepciones
+            ]
+        
+        return filtro_gerencia
+        
