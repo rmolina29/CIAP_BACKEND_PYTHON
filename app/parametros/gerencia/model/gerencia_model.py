@@ -15,12 +15,16 @@ class ProyectoUnidadGerencia(Base):
     unidad_gerencia_id_erp = Column(Text, nullable=False, unique=True)
     nombre = Column(Text, unique=True, nullable=True)
     responsable_id = Column(Integer, nullable=False)
+    estado = Column(
+        TINYINT(unsigned=True), default=1
+    ) 
 
     def __init__(self, id, unidad_gerencia_id_erp,nombre,responsable_id):
         self.id = id
         self.unidad_gerencia_id_erp = unidad_gerencia_id_erp
         self.nombre = nombre
         self.responsable_id = responsable_id
+        
 
     
     def to_dict(self):

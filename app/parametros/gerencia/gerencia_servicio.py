@@ -3,7 +3,7 @@ from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPer
 from app.database.db import session
 from typing import List
 from app.parametros.gerencia.esquema.archivo_esquema import Archivo
-from sqlalchemy import and_
+from sqlalchemy import and_,or_
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -14,7 +14,13 @@ class Gerencia:
         self.__obtener_gerencia_existente = self.obtener()
         # gerencia que me envia el usuario a traves del excel
         self.__gerencia = self.gerencia_usuario_procesada()
-
+        
+    def validacion_informacion_gerencia_nit(self):
+        gerencia_log, gerencia_filtrada_excel = [], []
+        [(gerencia_filtrada_excel if isinstance(item.get('NIT'), (int, float)) else gerencia_log).append(item) for item in self.__gerencia_excel]
+        return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel}
+    
+    
     def obtener(self):
         informacion_gerencia = session.query(ProyectoUnidadGerencia).all()
         # Convertir lista de objetos a lista de diccionarios
@@ -32,13 +38,15 @@ class Gerencia:
 
             log_transaccion_registro = self.insertar_inforacion(lista_insert)
             log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
+            log_nit_invalido = self.validacion_informacion_gerencia_nit()
 
             log_transaccion_registro_gerencia = {
-                "log_transaccion": {
+                "log_transaccion_excel": {
                     "gerencia_registradas": log_transaccion_registro,
                     "gerencias_actualizadas": log_transaccion_actualizar,
-                    "gerencias_sin_actualizadas": sin_cambios,
+                    "gerencias_sin_cambios": sin_cambios,
                     "gerencia_nit_no_existe": excepciones_id_usuario,
+                    "gerencia_filtro_nit_invalido":log_nit_invalido['log']
                 }
             }
 
@@ -88,18 +96,22 @@ class Gerencia:
     #  esta funcion sirve para validar lo que se envia en excel contra lo que recibe en la base de datos
     #  sacando asi los valores nuevos que no existen ninguno en la base de datos es decir se insertan
     def filtrar_gerencias_nuevas(self, excepciones_gerencia):
-        gerencias_nuevas = [
-            item
-            for item in self.__gerencia
-            if (
-                item["responsable_id"] is not None
-                and (item["unidad_gerencia_id_erp"] or item["nombre"])
-                not in {
-                    (g["unidad_gerencia_id_erp"] or g["nombre"])
-                    for g in self.__obtener_gerencia_existente
-                }
-            )
-        ]
+        try:
+            gerencias_nuevas = [
+                item
+                for item in self.__gerencia
+                if (
+                    item["responsable_id"] is not None
+                    and (item["unidad_gerencia_id_erp"] or item["nombre"])
+                    not in {
+                        (g["unidad_gerencia_id_erp"] or g["nombre"])
+                        for g in self.__obtener_gerencia_existente
+                    }
+                )
+            ]
+            return gerencias_nuevas
+        except Exception as e:
+            print(f"Se produjo un error: {str(e)}")
 
         # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
         filtro_gerencia_registro = self.gerencias_mapeo_excepciones(
@@ -163,8 +175,9 @@ class Gerencia:
     #  una consulta para obtener los id_usuario con la cedula, es decir con el nit del usuario
     def gerencia_usuario_procesada(self):
         try:
+            gerencia_excel = self.validacion_informacion_gerencia_nit()
             resultados = []
-            for gerencia in self.__gerencia_excel:
+            for gerencia in gerencia_excel['gerencia_filtrada_excel']:
                 usuario = self.query_usuario(gerencia["NIT"])
                 if usuario:
                     resultados.append(
@@ -205,16 +218,16 @@ class Gerencia:
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
         if len(novedades_de_gerencia) > 0:
-            session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
-            session.commit()
+            # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+            # session.commit()
             return novedades_de_gerencia
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia):
         if len(actualizacion_gerencia) > 0:
-            session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-            session.commit()
+            # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+            # session.commit()
             return actualizacion_gerencia
 
         return "No se han actualizado datos"

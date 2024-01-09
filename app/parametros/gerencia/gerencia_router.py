@@ -1,8 +1,10 @@
 import json
+from typing import List
 from click import File
 import pandas as pd
 from fastapi import APIRouter,File, UploadFile
 from fastapi.responses import JSONResponse
+from app.parametros.gerencia.esquema.archivo_esquema import Archivo
 from app.parametros.gerencia.gerencia_servicio import Gerencia
 
 gerencia = APIRouter(tags=['Gerencia'])
@@ -21,7 +23,10 @@ async def subir_archivo(file: UploadFile = File(...)):
                                                     "NIT": "NIT"})
         
         # Convertir a un diccionario en formato de registros
-        result_dict = selected_data.to_dict(orient="records")
+        result_dict:List[Archivo] = selected_data.to_dict(orient="records")
+        
+        filtered_data = [item for item in result_dict if not(isinstance(item.get('NIT'), (int, float)))]
+
 
         servicio_gerencia = Gerencia(result_dict)
         
