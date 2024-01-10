@@ -5,15 +5,46 @@ from typing import List
 from app.parametros.gerencia.esquema.archivo_esquema import Archivo
 from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
-
+from fastapi import  UploadFile
+import pandas as pd
 
 class Gerencia:
-    def __init__(self, data: List[Archivo]) -> None:
-        self.__gerencia_excel = data
+    def __init__(self,file:UploadFile) -> None:
+        self.__file = file
+        resultado_estructuracion = self.__proceso_de_informacion_estructuracion()
+        self.__informacion_excel_duplicada = resultado_estructuracion['duplicados']
+        self.__gerencia_excel = resultado_estructuracion['resultado']
         # todas las gerencias existentes en la base de datos
         self.__obtener_gerencia_existente = self.obtener()
         # gerencia que me envia el usuario a traves del excel
         self.__gerencia = self.gerencia_usuario_procesada()
+    
+    
+    def __proceso_de_informacion_estructuracion(self):
+        df = pd.read_excel(self.__file.file)
+        # Imprimir las columnas reales del DataFrame
+        selected_columns = ["ERP", "Gerencia", "NIT"]
+
+        selected_data = df[selected_columns]
+
+        # Cambiar los nombres de las columnas
+        selected_data = selected_data.rename(
+            columns={
+               "ERP": "unidad_gerencia_id_erp", 
+               "Gerencia": "nombre", 
+                "NIT": "NIT"
+            }
+        )
+        selected_data["unidad_gerencia_id_erp"] = selected_data["unidad_gerencia_id_erp"].str.lower()
+        selected_data["nombre"] = selected_data["nombre"].str.lower()
+
+        duplicados_unidad_erp = selected_data.duplicated(subset='unidad_gerencia_id_erp', keep=False)
+        duplicados_nombre = selected_data.duplicated(subset='nombre', keep=False)
+        # Filtrar DataFrame original
+        resultado = selected_data[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = selected_data[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        
+        return {'resultado':resultado,'duplicados':duplicados}
         
     def validacion_informacion_gerencia_nit(self):
         gerencia_log, gerencia_filtrada_excel = [], []
@@ -46,7 +77,8 @@ class Gerencia:
                     "gerencias_actualizadas": log_transaccion_actualizar,
                     "gerencias_sin_cambios": sin_cambios,
                     "gerencia_nit_no_existe": excepciones_id_usuario,
-                    "gerencia_filtro_nit_invalido":log_nit_invalido['log']
+                    "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
+                    "gerencias_duplicadas": self.__informacion_excel_duplicada
                 }
             }
 
@@ -97,25 +129,43 @@ class Gerencia:
     #  sacando asi los valores nuevos que no existen ninguno en la base de datos es decir se insertan
     def filtrar_gerencias_nuevas(self, excepciones_gerencia):
         try:
-            gerencias_nuevas = [
-                item
-                for item in self.__gerencia
-                if (
-                    item["responsable_id"] is not None
-                    and (item["unidad_gerencia_id_erp"] or item["nombre"])
-                    not in {
-                        (g["unidad_gerencia_id_erp"] or g["nombre"])
-                        for g in self.__obtener_gerencia_existente
-                    }
-                )
-            ]
+            # gerencias_nuevas = [
+            #     item
+            #     for item in self.__gerencia
+            #     if (
+            #         item["responsable_id"] is not None
+            #         and (item["unidad_gerencia_id_erp"] or item["nombre"])
+            #         not in {
+            #             (g["unidad_gerencia_id_erp"] or g["nombre"])
+            #             for g in self.__obtener_gerencia_existente
+            #         }
+            #     )
+            # ]
             
+            df_unidad_gerencia = pd.DataFrame(self.__gerencia)
+            df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
+
+            df_unidad_gerencia['responsable_id'] = df_unidad_gerencia['responsable_id'].astype(int)
+            df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre'].str.lower()
+            
+            df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre'].str.lower()
+            
+            resultado = df_unidad_gerencia[
+                (df_unidad_gerencia['responsable_id'] != 0) &
+                ~df_unidad_gerencia.apply(lambda x: (x['unidad_gerencia_id_erp'] or x['nombre']) in set(
+                    (g['unidad_gerencia_id_erp'] or g['nombre']) for _, g in df_obtener_unidad_gerencia_existentes.iterrows()), axis=1)
+            ]
+
+            gerencias_nuevas = resultado[['unidad_gerencia_id_erp', 'nombre','responsable_id']].to_dict(orient='records')
+
             # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
             filtro_gerencia_registro = self.gerencias_mapeo_excepciones(
             gerencias_nuevas, excepciones_gerencia
             )
             
-            return filtro_gerencia_registro
+            df_registro = pd.DataFrame(filtro_gerencia_registro)
+            registros_unidad_gerencia = df_registro.drop(columns=['id'])
+            return registros_unidad_gerencia.to_dict(orient='records')
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
 
@@ -123,24 +173,45 @@ class Gerencia:
 
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
     def obtener_gerencias_actualizacion(self, excepciones_gerencia):
-        gerencias_actualizacion = [
-            {
-                "id": g["id"],
-                "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-                "nombre": item["nombre"],
-                "responsable_id": item["responsable_id"],
-            }
-            for item in self.__gerencia
-            for g in self.__obtener_gerencia_existente
-            if (
-                item["responsable_id"] is not None
-                and item["unidad_gerencia_id_erp"].strip().lower()
-                == g["unidad_gerencia_id_erp"].strip().lower()
-            )
-        ]
+        # gerencias_actualizacion = [
+        #     {
+        #         "id": g["id"],
+        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
+        #         "nombre": item["nombre"],
+        #         "responsable_id": item["responsable_id"],
+        #     }
+        #     for item in self.__gerencia
+        #     for g in self.__obtener_gerencia_existente
+        #     if (
+        #         item["responsable_id"] is not None
+        #         and item["unidad_gerencia_id_erp"].strip().lower()
+        #         == g["unidad_gerencia_id_erp"].strip().lower()
+        #     )
+        # ]
+        
+        df_gerencia = pd.DataFrame(self.__gerencia)
+        df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
+        
+        df_gerencia['responsable_id'] = df_gerencia['responsable_id'].astype(int)
+        df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp'].str.lower()
+        df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'].str.lower()
+        
+        resultado = pd.merge(
+            df_gerencia[['unidad_gerencia_id_erp','nombre','responsable_id']],
+            df_obtener_unidad_de_gerencia[['id','unidad_gerencia_id_erp','nombre']],
+            left_on=['unidad_gerencia_id_erp'],
+            right_on=['unidad_gerencia_id_erp'],
+            how='inner'
+        )
+        
+        resultado_filtrado = resultado[resultado['responsable_id'] != 0]
+        # Seleccionar las columnas deseadas
+        resultado_final = resultado_filtrado[['id', 'unidad_gerencia_id_erp', 'nombre_x', 'responsable_id']].rename(columns={'nombre_x':'nombre'})
+        
+        gerencia_actualizar = resultado_final.to_dict(orient='records')
 
         filtrado_actualizacion = self.gerencias_mapeo_excepciones(
-            gerencias_actualizacion, excepciones_gerencia
+            gerencia_actualizar, excepciones_gerencia
         )
         return filtrado_actualizacion
 
@@ -148,29 +219,58 @@ class Gerencia:
     #  se lleva un registro de estos
     # esta validacion es para los usuarios que tienen items repetidos
     def obtener_no_sufrieron_cambios(self):
-        no_sufieron_cambios = [
-            {
-                "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-                "nombre": item["nombre"],
-            }
-            for item in self.__gerencia
-            for g in self.__obtener_gerencia_existente
-            if ((item["nombre"].upper()) == (g["nombre"].upper()))
-        ]
-        return no_sufieron_cambios
+        # no_sufieron_cambios = [
+        #     {
+        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
+        #         "nombre": item["nombre"],
+        #     }
+        #     for item in self.__gerencia
+        #     for g in self.__obtener_gerencia_existente
+        #     if ((item["nombre"].upper()) == (g["nombre"].upper()))
+        # ]
+        
+        df_unidad_gerencia = pd.DataFrame(self.__gerencia)
+        df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
+        
+        df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre'].str.lower()
+        df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre'].str.lower()
+        
+        no_sufren_cambios = pd.merge(
+            df_unidad_gerencia[['unidad_gerencia_id_erp','nombre']],
+            df_obtener_unidad_gerencia_existentes[['unidad_gerencia_id_erp','nombre']],
+            on='nombre',
+            how='inner'
+        )
+        
+        no_sufren_cambios.rename(columns={'unidad_gerencia_id_erp_x': 'unidad_gerencia_id_erp', 'nombre': 'nombre'}, inplace=True)
+        resultado_final = no_sufren_cambios[['unidad_gerencia_id_erp', 'nombre']]
+        gerencias_sin_cambios = resultado_final.to_dict(orient='records')
+        
+        return gerencias_sin_cambios
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
     #  se lleva un registro de estos
     # esta validacion es para los usuarios que tienen items repetidos
     def excepciones_id_usuario(self):
-        id_usuario_no_existe = [
-            {
-                "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-                "nombre": item["nombre"],
-            }
-            for item in self.__gerencia
-            if ((item["responsable_id"]) is None)
-        ]
+        # id_usuario_no_existe = [
+        #     {
+        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
+        #         "nombre": item["nombre"],
+        #     }
+        #     for item in self.__gerencia
+        #     if ((item["responsable_id"]) is None)
+        # ]
+        
+        df = pd.DataFrame(self.__gerencia)
+        # Filtrar el DataFrame para obtener filas con valores nulos
+        df_filtrado = df[(df == 0).any(axis=1)]
+        # Seleccionar solo las columnas deseadas
+        unidad_organizativas_columnas = ["unidad_gerencia_id_erp", "nombre"]
+        df_filtrado = df_filtrado[unidad_organizativas_columnas]
+        # Convertir el DataFrame filtrado a un diccionario
+        id_usuario_no_existe = df_filtrado.to_dict(orient='records')
+        
+        
         return id_usuario_no_existe
 
     #  a traves de esta funcion me va a devolver la gerencia compeleta pero con el id_usuario ya que se realiza
@@ -198,7 +298,7 @@ class Gerencia:
                                 "unidad_gerencia_id_erp"
                             ],
                             "nombre": gerencia["nombre"],
-                            "responsable_id": None,
+                            "responsable_id": 0,
                         }
                     )
             return resultados
@@ -236,14 +336,32 @@ class Gerencia:
     # y me envia la lista de gerencias que se le va realizar la insercion o la actualizacion
     def gerencias_mapeo_excepciones(self, gerencia, excepciones):
         # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
-        filtro_gerencia = [
-            item
-            for item in gerencia
-            if {
-                "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-                "nombre": item["nombre"],
-            }
-            not in excepciones
-        ]
+        # filtro_gerencia = [
+        #     item
+        #     for item in gerencia
+        #     if {
+        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
+        #         "nombre": item["nombre"],
+        #     }
+        #     not in excepciones
+        # ]
+        
+        df_unidad_gerencia = pd.DataFrame(gerencia)
+        df_excepciones = pd.DataFrame(excepciones)
+        
+        df_unidad_gerencia['id'] = 0 if 'id' not in df_unidad_gerencia.columns else df_unidad_gerencia['id']
+        
+        resultado = pd.merge(
+            df_unidad_gerencia[['id','unidad_gerencia_id_erp', 'nombre','responsable_id']],
+            df_excepciones[['unidad_gerencia_id_erp', 'nombre']],
+            on=['unidad_gerencia_id_erp', 'nombre'],
+            how='left',
+            indicator=True
+        )
+        
+        # Filtrar las filas donde el indicador '_merge' es 'left_only' (no está en excepciones)
+        filtro_gerencia = resultado[resultado['_merge'] == 'left_only'][['id','unidad_gerencia_id_erp', 'nombre','responsable_id']]
+        # Convertir a lista de diccionarios
+        gerencia = filtro_gerencia.to_dict(orient='records')
 
-        return filtro_gerencia
+        return gerencia
