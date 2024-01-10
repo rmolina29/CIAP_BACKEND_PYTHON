@@ -23,11 +23,13 @@ async def subir_archivo(file: UploadFile = File(...)):
                                                     "NIT": "NIT"})
         
         # Convertir a un diccionario en formato de registros
-        result_dict:List[Archivo] = selected_data.to_dict(orient="records")
+        # Convertir a minúsculas las columnas relevantes antes de eliminar duplicados
+        selected_data["unidad_gerencia_id_erp"] = selected_data["unidad_gerencia_id_erp"].str.lower()
+        selected_data["nombre"] = selected_data["nombre"].str.lower()
+
+        # Eliminar duplicados
+        result_dict = selected_data.drop_duplicates(subset=["unidad_gerencia_id_erp", "nombre"]).to_dict(orient="records")
         
-        filtered_data = [item for item in result_dict if not(isinstance(item.get('NIT'), (int, float)))]
-
-
         servicio_gerencia = Gerencia(result_dict)
         
         enviar_informacion = servicio_gerencia.registrar_informacion()

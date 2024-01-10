@@ -24,15 +24,23 @@ async def subir_archivo(file: UploadFile = File(...)):
                 "ID Gerencia (ERP)": "unidad_gerencia_id_erp",
             }
         )
+        selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"].str.lower()
+        selected_data["nombre"] = selected_data["nombre"].str.lower()
 
         # Convertir a un diccionario en formato de registros
-        result_dict = selected_data.to_dict(orient="records")
+        # result_dict = selected_data.drop_duplicates(subset=['unidad_organizativa_id_erp','nombre'], keep='first').to_dict(orient="records")
 
-        direccion = Direccion(result_dict)
+        duplicados_unidad_erp = selected_data.duplicated(subset='unidad_organizativa_id_erp', keep='first')
+        duplicados_nombre = selected_data.duplicated(subset='nombre', keep='first')
+
+        # Filtrar DataFrame original
+        resultado = selected_data[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+
+        direccion = Direccion(resultado)
+        
 
         enviar_informacion = direccion.transacciones()
 
-        # return enviar_informacion
         return JSONResponse(content=enviar_informacion, media_type="application/json")
     except Exception as e:
         print(e)

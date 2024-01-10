@@ -3,7 +3,7 @@ from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPer
 from app.database.db import session
 from typing import List
 from app.parametros.gerencia.esquema.archivo_esquema import Archivo
-from sqlalchemy import and_,or_
+from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -109,15 +109,17 @@ class Gerencia:
                     }
                 )
             ]
-            return gerencias_nuevas
+            
+            # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
+            filtro_gerencia_registro = self.gerencias_mapeo_excepciones(
+            gerencias_nuevas, excepciones_gerencia
+            )
+            
+            return filtro_gerencia_registro
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
 
-        # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
-        filtro_gerencia_registro = self.gerencias_mapeo_excepciones(
-            gerencias_nuevas, excepciones_gerencia
-        )
-        return filtro_gerencia_registro
+
 
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
     def obtener_gerencias_actualizacion(self, excepciones_gerencia):
@@ -218,16 +220,14 @@ class Gerencia:
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
         if len(novedades_de_gerencia) > 0:
-            # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
-            # session.commit()
+            session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
             return novedades_de_gerencia
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia):
         if len(actualizacion_gerencia) > 0:
-            # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
             return actualizacion_gerencia
 
         return "No se han actualizado datos"
