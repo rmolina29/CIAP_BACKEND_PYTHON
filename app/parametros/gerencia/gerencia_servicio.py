@@ -360,7 +360,7 @@ class Gerencia:
     def insertar_inforacion(self, novedades_de_gerencia: List):
         try:
             if len(novedades_de_gerencia) > 0:
-                # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+                session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -372,7 +372,7 @@ class Gerencia:
     def actualizar_informacion(self, actualizacion_gerencia):
         try:
             if len(actualizacion_gerencia) > 0:
-                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"
