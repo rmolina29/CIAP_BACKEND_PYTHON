@@ -113,6 +113,7 @@ class Gerencia:
                 excepciones_id_usuario,
             ) = self.filtrar_gerencias()
 
+         
             resultado = {
                 "insercion_datos": gerencias_nuevas,
                 "actualizacion_datos": gerencias_actualizacion,
@@ -173,8 +174,6 @@ class Gerencia:
                 ]
                                 
                 nuevas_gerencias_a_registrar = resultado.to_dict(orient='records')
-                print(nuevas_gerencias_a_registrar)
-                
                 
                 filtro_unidad_organizativa = self.gerencias_mapeo_excepciones(
                 nuevas_gerencias_a_registrar, excepciones_gerencia
@@ -326,7 +325,6 @@ class Gerencia:
         try:
             gerencia_excel = self.validacion_informacion_gerencia_nit()
             resultados = []
-            print(gerencia_excel['gerencia_filtrada_excel'])
             for gerencia in gerencia_excel['gerencia_filtrada_excel']:
                 nit_value = gerencia['NIT']
                 # Verificar si el valor es un número y no es NaN
@@ -371,7 +369,8 @@ class Gerencia:
 
     def actualizar_informacion(self, actualizacion_gerencia):
         try:
-            if len(actualizacion_gerencia) > 0:
+            # print(f' actualizacionnn {actualizacion_gerencia is None}')
+            if len(actualizacion_gerencia) > 0  :
                 session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
                 return actualizacion_gerencia
 
