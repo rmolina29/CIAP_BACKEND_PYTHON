@@ -16,6 +16,7 @@ class Direccion:
         self.__direcion_excel = resultado_estructuracion['resultado']
         self.__obtener_unidad_organizativa_existentes = self.obtener_direccion()
         self.__unidad_organizativa = self.proceso_informacion_con_id_gerencia()
+        self.__validacion_contenido = len(self.__unidad_organizativa) > 0 or len(self.__obtener_unidad_organizativa_existentes) > 0
         
     
     def __proceso_de_informacion_estructuracion(self):
@@ -117,15 +118,17 @@ class Direccion:
         )
     
     def unidad_organizativa_id_erp(self):
-        
-        df = pd.DataFrame(self.__unidad_organizativa)
-        # Filtrar el DataFrame para obtener filas con valores nulos
-        df_filtrado = df[(df == 0).any(axis=1)]
-        # Seleccionar solo las columnas deseadas
-        unidad_organizativas_columnas = ["unidad_organizativa_id_erp", "nombre"]
-        df_filtrado = df_filtrado[unidad_organizativas_columnas]
-        # Convertir el DataFrame filtrado a un diccionario
-        id_gerencias_none = df_filtrado.to_dict(orient='records')
+        if self.__validacion_contenido:
+            df = pd.DataFrame(self.__unidad_organizativa)
+            # Filtrar el DataFrame para obtener filas con valores nulos
+            df_filtrado = df[(df == 0).any(axis=1)]
+            # Seleccionar solo las columnas deseadas
+            unidad_organizativas_columnas = ["unidad_organizativa_id_erp", "nombre"]
+            df_filtrado = df_filtrado[unidad_organizativas_columnas]
+            # Convertir el DataFrame filtrado a un diccionario
+            id_gerencias_none = df_filtrado.to_dict(orient='records')
+        else:
+            id_gerencias_none =[] 
         
         return id_gerencias_none
     
@@ -140,23 +143,29 @@ class Direccion:
         #     for d in self.__obtener_unidad_organizativa_existentes
         #     if ((item["nombre"].upper()) == (d["nombre"].upper())) 
         # ]
-        
-        df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
-        df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
+        if self.__validacion_contenido:
+            df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
+            df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
 
-        df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.lower()
-        df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre'].str.lower()
-        
-        no_sufren_cambios = pd.merge(
-            df_unidad_organizativa[['unidad_organizativa_id_erp','nombre']],
-            df_obtener_unidad_organizativa_existentes[['unidad_organizativa_id_erp','nombre']],
-            on='nombre',
-            how='inner'
-        )
-        
-        no_sufren_cambios.rename(columns={'unidad_organizativa_id_erp_x': 'unidad_organizativa_id_erp', 'nombre': 'nombre'}, inplace=True)
-        resultado_final = no_sufren_cambios[['unidad_organizativa_id_erp', 'nombre']]
-        result = resultado_final.to_dict(orient='records')
+            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.lower()
+            df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre'].str.lower()
+            
+            no_sufren_cambios = pd.merge(
+                df_unidad_organizativa[['unidad_organizativa_id_erp','nombre','gerencia_id']],
+                df_obtener_unidad_organizativa_existentes[['unidad_organizativa_id_erp','nombre','gerencia_id']],
+                on='nombre',
+                how='inner'
+            )
+            
+            #  # Filtrar por responsable_id o nombre
+            # filtro_responsable_id = no_sufren_cambios['gerencia_id_x'] == no_sufren_cambios['gerencia_id_y']
+            
+            resultado_final = no_sufren_cambios[['unidad_organizativa_id_erp_x', 'nombre', 'gerencia_id_x']].rename(
+            columns={'unidad_organizativa_id_erp_x': 'unidad_organizativa_id_erp', 'gerencia_id_x': 'gerencia_id'})
+            
+            result = resultado_final.to_dict(orient='records')
+        else:
+            result = []
         
         return result
     
@@ -187,33 +196,43 @@ class Direccion:
             #     )
             # ]
             
-            df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
-            df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
+            if self.__validacion_contenido:
+            
+                df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
+                df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
 
-            df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
-            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.lower()
+                df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
+                df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.lower()
+                df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre'].str.lower()
+      
+                
+                resultado = df_unidad_organizativa[
+                    (df_obtener_unidad_organizativa_existentes['gerencia_id'] != 0) &
+                    ~df_unidad_organizativa.apply(lambda x: ((x['unidad_organizativa_id_erp'] in set(df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_organizativa_existentes['nombre']))), axis=1)
+                ]
+                
+
+                
+                direccion_nuevas = resultado[['unidad_organizativa_id_erp', 'nombre','gerencia_id']].to_dict(orient='records')
             
-            df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre'].str.lower()
+        
+                # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
+                filtro_unidad_organizativa = self.direccion_mapeo_excepciones(
+                direccion_nuevas, excepciones_unidad_organizativa
+                )
+                
+                if len(filtro_unidad_organizativa) == 0:
+                    return direccion_nuevas
+                
+                df_registro = pd.DataFrame(filtro_unidad_organizativa)
+                registros = df_registro.drop(columns=['id']) 
+                registros_unidad_organizativa = registros.to_dict(orient='records')
+                
+            else:
+                registros_unidad_organizativa = []
             
-            resultado = df_unidad_organizativa[
-                (df_unidad_organizativa['gerencia_id'] != 0) &
-                ~df_unidad_organizativa.apply(lambda x: (x['unidad_organizativa_id_erp'] or x['nombre']) in set(
-                    (g['unidad_organizativa_id_erp'] or g['nombre']) for _, g in df_obtener_unidad_organizativa_existentes.iterrows()), axis=1)
-            ]
-          
             
-            direccion_nuevas = resultado[['unidad_organizativa_id_erp', 'nombre','gerencia_id']].to_dict(orient='records')
-          
-    
-            # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
-            filtro_unidad_organizativa = self.direccion_mapeo_excepciones(
-            direccion_nuevas, excepciones_unidad_organizativa
-            )
-            
-            df_registro = pd.DataFrame(filtro_unidad_organizativa)
-            registros_unidad_organizativa = df_registro.drop(columns=['id'])
-            
-            return registros_unidad_organizativa.to_dict(orient='records')
+            return registros_unidad_organizativa
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
         
@@ -233,55 +252,71 @@ class Direccion:
         #         == g["unidad_organizativa_id_erp"].strip().lower()
         #     )
         # ]
-        
-        df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
-        df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
+        if self.__validacion_contenido:
+            df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
+            df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
 
-        df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
-        df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp'].str.lower()
-        df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'] = df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'].str.lower()
-        
-        resultado = pd.merge(
-            df_unidad_organizativa[['unidad_organizativa_id_erp','nombre','gerencia_id']],
-            df_obtener_unidad_organizativa_existentes[['id','unidad_organizativa_id_erp','nombre']],
-            left_on=['unidad_organizativa_id_erp'],
-            right_on=['unidad_organizativa_id_erp'],
-            how='inner'
-        )
-        resultado_filtrado = resultado[resultado['gerencia_id'] != 0]
-        # Seleccionar las columnas deseadas
-        resultado_final = resultado_filtrado[['id', 'unidad_organizativa_id_erp', 'nombre_x', 'gerencia_id']].rename(columns={'nombre_x':'nombre'})
-        # Convertir a lista de diccionarios
-        unidad_organizativa_actualizar = resultado_final.to_dict(orient='records')
+            df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
+            df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp'].str.lower()
+            df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'] = df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'].str.lower()
+            
+            resultado = pd.merge(
+                df_unidad_organizativa[['unidad_organizativa_id_erp','nombre','gerencia_id']],
+                df_obtener_unidad_organizativa_existentes[['id','unidad_organizativa_id_erp','nombre','gerencia_id']],
+                left_on=['unidad_organizativa_id_erp'],
+                right_on=['unidad_organizativa_id_erp'],
+                how='inner'
+            )
+            
+            
+            resultado_filtrado = resultado[
+                (resultado['gerencia_id_x'] != 0) &
+                ((resultado['nombre_x'] != resultado['nombre_y']) |  (resultado['gerencia_id_x'] != resultado['gerencia_id_y']))
+            ]
+   
+            # Seleccionar las columnas deseadas
+            resultado_final = resultado_filtrado[['id', 'unidad_organizativa_id_erp', 'nombre_x', 'gerencia_id_x']].rename(columns={'nombre_x':'nombre','gerencia_id_x':'gerencia_id'})
 
-        filtrado_actualizacion = self.direccion_mapeo_excepciones(
-            unidad_organizativa_actualizar, excepciones_unidad_organizativa
-        )
-        
+            gerencia_actualizar = resultado_final.to_dict(orient='records')
 
+            filtrado_actualizacion = self.direccion_mapeo_excepciones(
+                gerencia_actualizar, excepciones_unidad_organizativa
+            )
+
+            if len(filtrado_actualizacion) == 0:
+                    return gerencia_actualizar
         
+        else:
+            filtrado_actualizacion = []
+
         return filtrado_actualizacion
     
     def direccion_mapeo_excepciones(self, direccion, excepciones):
         
         df_unidad_organizativa = pd.DataFrame(direccion)
         df_excepciones = pd.DataFrame(excepciones)
-        
         df_unidad_organizativa['id'] = 0 if 'id' not in df_unidad_organizativa.columns else df_unidad_organizativa['id']
         
+        columnas_necesarias = ['id', 'unidad_organizativa_id_erp', 'nombre', 'gerencia_id']
+        if set(columnas_necesarias).issubset(df_unidad_organizativa.columns) and set(['unidad_gerencia_id_erp', 'nombre']).issubset(df_excepciones.columns):
+            resultado = pd.merge(
+                    df_unidad_organizativa[['id','unidad_organizativa_id_erp', 'nombre','gerencia_id']],
+                    df_excepciones[['unidad_organizativa_id_erp', 'nombre']],
+                    on=['unidad_organizativa_id_erp', 'nombre'],
+                    how='left',
+                    indicator=True
+                )
+            # Verificar si 'unidad_gerencia_id_erp' y 'nombre' están presentes en resultado antes de continuar
+            if set(['unidad_organizativa_id_erp', 'nombre']).issubset(resultado.columns):
+                # Filtrar las filas donde el indicador '_merge' es 'left_only' (no está en excepciones)
+                filtro_direccion = resultado[resultado['_merge'] == 'left_only'][columnas_necesarias]
+                # Convertir a lista de diccionarios
+                direccion = filtro_direccion.to_dict(orient='records')
+            else:
+                direccion = []
+        else:
+            direccion = []
         
-        resultado = pd.merge(
-            df_unidad_organizativa[['id','unidad_organizativa_id_erp', 'nombre','gerencia_id']],
-            df_excepciones[['unidad_organizativa_id_erp', 'nombre']],
-            on=['unidad_organizativa_id_erp', 'nombre'],
-            how='left',
-            indicator=True
-        )
-        # Filtrar las filas donde el indicador '_merge' es 'left_only' (no está en excepciones)
-        filtro_direccion = resultado[resultado['_merge'] == 'left_only'][['id','unidad_organizativa_id_erp', 'nombre','gerencia_id']]
-        # Convertir a lista de diccionarios
-        direccion = filtro_direccion.to_dict(orient='records')
-
         return direccion
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):

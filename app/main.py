@@ -1,8 +1,10 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 from app.parametros.gerencia import gerencia_router as router_g
 from app.parametros.direccion import direccion_router as router_d
+
+from app.parametros.ceco import ceco_router as router_c
 
 # from app.utils import load_app
 
@@ -22,6 +24,9 @@ app.include_router(
 )
 app.include_router(
     router_d.direccion, prefix="/fts/parametros/direccion"
+)
+app.include_router(
+    router_c.ceco, prefix="/fts/parametros/ceco"
 )
 # app.include_router(item.router, prefix="/items", tags=["items"])
 
