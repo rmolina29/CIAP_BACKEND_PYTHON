@@ -1,4 +1,6 @@
 import math
+
+from fastapi.responses import JSONResponse
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
@@ -166,12 +168,12 @@ class Gerencia:
                 df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'] = df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'].str.lower()
                 
                 resultado = df_unidad_gerencia[
-                    (df_obtener_unidad_gerencia_existentes['responsable_id'] != 0) &
+                    (df_unidad_gerencia['responsable_id'] != 0) &
                     ~df_unidad_gerencia.apply(lambda x: ((x['unidad_gerencia_id_erp'] in set(df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_gerencia_existentes['nombre']))), axis=1)
                 ]
                                 
-           
                 nuevas_gerencias_a_registrar = resultado.to_dict(orient='records')
+                print(nuevas_gerencias_a_registrar)
                 
                 
                 filtro_unidad_organizativa = self.gerencias_mapeo_excepciones(
@@ -184,7 +186,6 @@ class Gerencia:
             else:
                 nuevas_gerencias_a_registrar = []
                 
-            
             return nuevas_gerencias_a_registrar
         
         except Exception as e:
@@ -253,7 +254,6 @@ class Gerencia:
         else:
             filtrado_actualizacion = []
         
-        # print(f'obtener_gerencias_actualizacion: {filtrado_actualizacion}')
         return filtrado_actualizacion
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
@@ -326,7 +326,7 @@ class Gerencia:
         try:
             gerencia_excel = self.validacion_informacion_gerencia_nit()
             resultados = []
-
+            print(gerencia_excel['gerencia_filtrada_excel'])
             for gerencia in gerencia_excel['gerencia_filtrada_excel']:
                 nit_value = gerencia['NIT']
                 # Verificar si el valor es un número y no es NaN
@@ -358,18 +358,27 @@ class Gerencia:
         )
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
-        if len(novedades_de_gerencia) > 0:
-            session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
-            return novedades_de_gerencia
+        try:
+            if len(novedades_de_gerencia) > 0:
+                # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+                return novedades_de_gerencia
 
-        return "No se han registrado datos"
+            return "No se han registrado datos"
+        except SQLAlchemyError as e:
+              print(f"Se produjo un error de SQLAlchemy: {e}")
+            #   return e
+        
 
     def actualizar_informacion(self, actualizacion_gerencia):
-        if len(actualizacion_gerencia) > 0:
-            session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-            return actualizacion_gerencia
+        try:
+            if len(actualizacion_gerencia) > 0:
+                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                return actualizacion_gerencia
 
-        return "No se han actualizado datos"
+            return "No se han actualizado datos"
+        except SQLAlchemyError as e:
+              print(f"Se produjo un error de SQLAlchemy: {e}")
+            #   return e
 
     # se realiza un mapeo para realizar el filtro de la gerencia actualizar a registrar
     # y me envia la lista de gerencias que se le va realizar la insercion o la actualizacion
