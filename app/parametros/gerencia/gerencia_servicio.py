@@ -1,3 +1,4 @@
+import math
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
@@ -44,11 +45,14 @@ class Gerencia:
         resultado = selected_data[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         duplicados = selected_data[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
-        return {'resultado':resultado,'duplicados':duplicados}
+        lista_gerencias = [{**item, 'NIT': int(item['NIT'])} if isinstance(item.get('NIT'), (int, float)) and not math.isnan(item.get('NIT')) else item for item in duplicados]
+        
+        
+        return {'resultado':resultado,'duplicados':lista_gerencias}
         
     def validacion_informacion_gerencia_nit(self):
         gerencia_log, gerencia_filtrada_excel = [], []
-        [(gerencia_filtrada_excel if isinstance(item.get('NIT'), (int, float)) else gerencia_log).append(item) for item in self.__gerencia_excel]
+        [(gerencia_filtrada_excel if isinstance(item.get('NIT'), (int,float)) else gerencia_log).append(item) for item in self.__gerencia_excel]
         return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel}
     
     
@@ -133,7 +137,7 @@ class Gerencia:
             #     item
             #     for item in self.__gerencia
             #     if (
-            #         item["responsable_id"] is not None
+            #         item["responsable_id"] != 0
             #         and (item["unidad_gerencia_id_erp"] or item["nombre"])
             #         not in {
             #             (g["unidad_gerencia_id_erp"] or g["nombre"])
@@ -149,6 +153,7 @@ class Gerencia:
             df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre'].str.lower()
             
             df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre'].str.lower()
+            df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'] = df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'].str.lower()
             
             resultado = df_unidad_gerencia[
                 (df_unidad_gerencia['responsable_id'] != 0) &
@@ -163,9 +168,19 @@ class Gerencia:
             gerencias_nuevas, excepciones_gerencia
             )
             
+            if len(filtro_gerencia_registro) == 0:
+                return gerencias_nuevas
+            
             df_registro = pd.DataFrame(filtro_gerencia_registro)
-            registros_unidad_gerencia = df_registro.drop(columns=['id'])
-            return registros_unidad_gerencia.to_dict(orient='records')
+            
+            # Verificar si 'id' está en las columnas antes de intentar eliminarla
+            registros_unidad_gerencia = df_registro.drop(columns=['id']) if 'id' in df_registro.columns else pd.DataFrame()
+
+            # Convertir a dict si no es un DataFrame vacío
+            registro_unidad = registros_unidad_gerencia.to_dict(orient='records') 
+            
+            return registro_unidad
+        
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
 
@@ -183,7 +198,7 @@ class Gerencia:
         #     for item in self.__gerencia
         #     for g in self.__obtener_gerencia_existente
         #     if (
-        #         item["responsable_id"] is not None
+        #         item["responsable_id"] != 0
         #         and item["unidad_gerencia_id_erp"].strip().lower()
         #         == g["unidad_gerencia_id_erp"].strip().lower()
         #     )
@@ -209,10 +224,14 @@ class Gerencia:
         resultado_final = resultado_filtrado[['id', 'unidad_gerencia_id_erp', 'nombre_x', 'responsable_id']].rename(columns={'nombre_x':'nombre'})
         
         gerencia_actualizar = resultado_final.to_dict(orient='records')
-
+    
         filtrado_actualizacion = self.gerencias_mapeo_excepciones(
             gerencia_actualizar, excepciones_gerencia
         )
+        
+        if len(filtrado_actualizacion) == 0:
+                return gerencia_actualizar
+        
         return filtrado_actualizacion
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
@@ -243,9 +262,8 @@ class Gerencia:
         )
         
         no_sufren_cambios.rename(columns={'unidad_gerencia_id_erp_x': 'unidad_gerencia_id_erp', 'nombre': 'nombre'}, inplace=True)
-        resultado_final = no_sufren_cambios[['unidad_gerencia_id_erp', 'nombre']]
-        gerencias_sin_cambios = resultado_final.to_dict(orient='records')
-        
+        # resultado_final = no_sufren_cambios[['unidad_gerencia_id_erp', 'nombre']]
+        gerencias_sin_cambios = no_sufren_cambios.rename(columns={'unidad_gerencia_id_erp_x': 'unidad_gerencia_id_erp', 'nombre': 'nombre'})[['unidad_gerencia_id_erp', 'nombre']].to_dict(orient='records') if 'unidad_gerencia_id_erp_x' in no_sufren_cambios.columns else []
         return gerencias_sin_cambios
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
@@ -258,7 +276,7 @@ class Gerencia:
         #         "nombre": item["nombre"],
         #     }
         #     for item in self.__gerencia
-        #     if ((item["responsable_id"]) is None)
+        #     if ((item["responsable_id"]) == 0)
         # ]
         
         df = pd.DataFrame(self.__gerencia)
@@ -270,7 +288,6 @@ class Gerencia:
         # Convertir el DataFrame filtrado a un diccionario
         id_usuario_no_existe = df_filtrado.to_dict(orient='records')
         
-        
         return id_usuario_no_existe
 
     #  a traves de esta funcion me va a devolver la gerencia compeleta pero con el id_usuario ya que se realiza
@@ -279,29 +296,20 @@ class Gerencia:
         try:
             gerencia_excel = self.validacion_informacion_gerencia_nit()
             resultados = []
+
             for gerencia in gerencia_excel['gerencia_filtrada_excel']:
-                usuario = self.query_usuario(gerencia["NIT"])
-                if usuario:
-                    resultados.append(
-                        {
-                            "unidad_gerencia_id_erp": gerencia[
-                                "unidad_gerencia_id_erp"
-                            ],
-                            "nombre": gerencia["nombre"],
-                            "responsable_id": usuario.to_dict().get("id_usuario"),
-                        }
-                    )
-                else:
-                    resultados.append(
-                        {
-                            "unidad_gerencia_id_erp": gerencia[
-                                "unidad_gerencia_id_erp"
-                            ],
-                            "nombre": gerencia["nombre"],
-                            "responsable_id": 0,
-                        }
-                    )
+                nit_value = gerencia['NIT']
+                # Verificar si el valor es un número y no es NaN
+                if isinstance(nit_value, (int, float)) and not math.isnan(nit_value):
+                    usuario = self.query_usuario(int(nit_value))
+
+                    resultados.append({
+                        "unidad_gerencia_id_erp": gerencia["unidad_gerencia_id_erp"],
+                        "nombre": gerencia["nombre"],
+                        "responsable_id": usuario.to_dict().get("id_usuario") if usuario else 0,
+                    })
             return resultados
+
         except Exception as e:
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
@@ -320,14 +328,14 @@ class Gerencia:
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
         if len(novedades_de_gerencia) > 0:
-            session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+            # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
             return novedades_de_gerencia
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia):
         if len(actualizacion_gerencia) > 0:
-            session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+            # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
             return actualizacion_gerencia
 
         return "No se han actualizado datos"
@@ -351,17 +359,24 @@ class Gerencia:
         
         df_unidad_gerencia['id'] = 0 if 'id' not in df_unidad_gerencia.columns else df_unidad_gerencia['id']
         
-        resultado = pd.merge(
-            df_unidad_gerencia[['id','unidad_gerencia_id_erp', 'nombre','responsable_id']],
-            df_excepciones[['unidad_gerencia_id_erp', 'nombre']],
-            on=['unidad_gerencia_id_erp', 'nombre'],
-            how='left',
-            indicator=True
-        )
+        columnas_necesarias = ['id', 'unidad_gerencia_id_erp', 'nombre', 'responsable_id']
+        if set(columnas_necesarias).issubset(df_unidad_gerencia.columns) and set(['unidad_gerencia_id_erp', 'nombre']).issubset(df_excepciones.columns):
+            resultado = pd.merge(
+                df_unidad_gerencia[columnas_necesarias],
+                df_excepciones[['unidad_gerencia_id_erp', 'nombre']],
+                on=['unidad_gerencia_id_erp', 'nombre'],
+                how='left',
+                indicator=True
+            )
+            # Verificar si 'unidad_gerencia_id_erp' y 'nombre' están presentes en resultado antes de continuar
+            if set(['unidad_gerencia_id_erp', 'nombre']).issubset(resultado.columns):
+                # Filtrar las filas donde el indicador '_merge' es 'left_only' (no está en excepciones)
+                filtro_gerencia = resultado[resultado['_merge'] == 'left_only'][columnas_necesarias]
+                # Convertir a lista de diccionarios
+                gerencia_mapeo_resultado = filtro_gerencia.to_dict(orient='records')
+            else:
+                gerencia_mapeo_resultado = []
+        else:
+            gerencia_mapeo_resultado = []
         
-        # Filtrar las filas donde el indicador '_merge' es 'left_only' (no está en excepciones)
-        filtro_gerencia = resultado[resultado['_merge'] == 'left_only'][['id','unidad_gerencia_id_erp', 'nombre','responsable_id']]
-        # Convertir a lista de diccionarios
-        gerencia = filtro_gerencia.to_dict(orient='records')
-
-        return gerencia
+        return gerencia_mapeo_resultado
