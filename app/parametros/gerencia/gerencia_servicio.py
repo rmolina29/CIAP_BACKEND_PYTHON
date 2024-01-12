@@ -1,6 +1,4 @@
 import math
-
-from fastapi.responses import JSONResponse
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
@@ -358,7 +356,8 @@ class Gerencia:
     def insertar_inforacion(self, novedades_de_gerencia: List):
         try:
             if len(novedades_de_gerencia) > 0:
-                session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+                actualizacion_data = self.procesar_datos_minuscula(novedades_de_gerencia)
+                session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -371,7 +370,8 @@ class Gerencia:
         try:
             # print(f' actualizacionnn {actualizacion_gerencia is None}')
             if len(actualizacion_gerencia) > 0  :
-                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"
@@ -402,7 +402,7 @@ class Gerencia:
             resultado = pd.merge(
                 df_unidad_gerencia[columnas_necesarias],
                 df_excepciones[['unidad_gerencia_id_erp', 'nombre']],
-                on=['unidad_gerencia_id_erp', 'nombre'],
+                on = ['unidad_gerencia_id_erp', 'nombre'],
                 how='left',
                 indicator=True
             )
@@ -418,3 +418,8 @@ class Gerencia:
             gerencia_mapeo_resultado = []
         
         return gerencia_mapeo_resultado
+    
+    def procesar_datos_minuscula(self,datos):
+        df = pd.DataFrame(datos)
+        df[['unidad_gerencia_id_erp', 'nombre']] = df[['unidad_gerencia_id_erp', 'nombre']].apply(lambda x: x.str.lower())
+        return df.to_dict(orient='records')

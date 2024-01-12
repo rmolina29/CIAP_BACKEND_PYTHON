@@ -34,6 +34,7 @@ class Direccion:
                 "ID Gerencia (ERP)": "unidad_gerencia_id_erp",
             }
         )
+        
         selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"].str.lower()
         selected_data["nombre"] = selected_data["nombre"].str.lower()
 
@@ -62,7 +63,7 @@ class Direccion:
                     "unidad_organizativa_registradas": log_transaccion_registro,
                     "unidad_organizativas_actualizadas": log_transaccion_actualizar,
                     "unidad_organizativas_sin_cambios": sin_cambios,
-                    "unidad_organizativa_nit_no_existe": excepciones_id_usuario,
+                    "unidad_organizativa_id_no_existe": excepciones_id_usuario,
                     "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada
                 }
             }
@@ -207,7 +208,7 @@ class Direccion:
       
                 
                 resultado = df_unidad_organizativa[
-                    (df_obtener_unidad_organizativa_existentes['gerencia_id'] != 0) &
+                    (df_unidad_organizativa['gerencia_id'] != 0) &
                     ~df_unidad_organizativa.apply(lambda x: ((x['unidad_organizativa_id_erp'] in set(df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_organizativa_existentes['nombre']))), axis=1)
                 ]
                 
@@ -321,15 +322,17 @@ class Direccion:
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         if len(novedades_unidad_organizativa) > 0:
-            session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
-            return novedades_unidad_organizativa
+            informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
+            session.bulk_insert_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+            return informacion_unidad_gerencia
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
-            return actualizacion_gerencia_unidad_organizativa
+            informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
+            session.bulk_update_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+            return informacion_unidad_gerencia
 
         return "No se han actualizado datos"
     
@@ -362,3 +365,9 @@ class Direccion:
         except Exception as e:
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
+        
+        
+    def procesar_datos_minuscula(self,datos):
+        df = pd.DataFrame(datos)
+        df[['unidad_organizativa_id_erp', 'nombre']] = df[['unidad_organizativa_id_erp', 'nombre']].apply(lambda x: x.str.lower())
+        return df.to_dict(orient='records')

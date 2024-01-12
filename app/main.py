@@ -3,9 +3,9 @@ from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 from app.parametros.gerencia import gerencia_router as router_g
 from app.parametros.direccion import direccion_router as router_d
-
 from app.parametros.ceco import ceco_router as router_c
-
+from app.parametros.cliente import cliente_router as router_cli
+from app.parametros.estado import estado_router as router_e
 # from app.utils import load_app
 
 app = FastAPI(debug=True)
@@ -28,7 +28,13 @@ app.include_router(
 app.include_router(
     router_c.ceco, prefix="/fts/parametros/ceco"
 )
-# app.include_router(item.router, prefix="/items", tags=["items"])
+app.include_router(
+    router_cli.cliente, prefix="/fts/parametros/cliente"
+)
+app.include_router(
+    router_e.estado, prefix="/fts/estado/cliente"
+)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
