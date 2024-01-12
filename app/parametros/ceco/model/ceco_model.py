@@ -9,7 +9,7 @@ class ProyectoCeco(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     ceco_id_erp = Column(Text, nullable=False, unique=True)
     nombre = Column(Text, unique=True, nullable=True)
-    descripcion = Column(Text,nullable = True)
+    descripcion = Column(Text,nullable = True,unique=False)
    
 
     def __init__(self, id, ceco_id_erp, nombre,descripcion):

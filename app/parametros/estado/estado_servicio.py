@@ -11,7 +11,6 @@ class Estado:
         # data para la comparacion de informacion sacandola de la base de datos
         self.__obtener_estados_existente = self.obtener()
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
-        
         self.__estados = estados_usuario_excel['resultado']
         self.__estados_duplicados = estados_usuario_excel['duplicados']
     
@@ -131,7 +130,13 @@ class Estado:
             # Seleccionar las columnas deseadas
             resultado_final = resultado_filtrado[['id', 'estado_id_erp', 'descripcion_x']].rename(columns={'descripcion_x':'descripcion'})
             
-            resultado_actualizacion = resultado_final.to_dict(orient='records')
+            resultado = resultado_final[
+                        ~resultado_final.apply(lambda x: 
+                            ((x['descripcion'] in set(df_obtener_estados_existentes['descripcion'])) 
+                            ), axis=1)
+                    ]
+            
+            resultado_actualizacion = resultado.to_dict(orient='records')
       
         else:
             resultado_actualizacion = []
@@ -163,6 +168,11 @@ class Estado:
         if len(novedades_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
             # session.bulk_insert_mappings(ProyectoEstado, informacion_unidad_gerencia)
+            # session.flush()
+            # nuevos = session.new
+            
+            # print("Entidades nuevas:", nuevos)
+            
             return informacion_unidad_gerencia
         return "No se han registrado datos"
 
@@ -170,6 +180,10 @@ class Estado:
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
             # session.bulk_update_mappings(ProyectoEstado, informacion_unidad_gerencia)
+            # session.flush()
+            # modificaciones = session.dirty
+            # print("Entidades modificadas:", modificaciones)
+            
             return informacion_unidad_gerencia
         return "No se han actualizado datos"
     
