@@ -159,7 +159,15 @@ class Ceco:
                 ]
             
             resultado_actualizacion = resultado.to_dict(orient='records')
-      
+
+            ceco_filtro = self.obtener_no_sufrieron_cambios()
+            
+            if len(ceco_filtro) != 0:
+                df_ceco = pd.DataFrame(ceco_filtro)
+                df_filtrado = resultado[~resultado.isin(df_ceco.to_dict('list')).all(axis=1)]
+                return df_filtrado.to_dict(orient='records')
+            
+            return resultado_actualizacion
         else:
             resultado_actualizacion = []
             

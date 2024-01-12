@@ -37,12 +37,13 @@ class Cliente:
         selected_data["cliente_id_erp"] = selected_data["cliente_id_erp"].str.lower()
         selected_data["razon_social"] = selected_data["razon_social"].str.lower()
         
+        df_filtered = selected_data.dropna()
         
-        duplicados_unidad_erp = selected_data.duplicated(subset='cliente_id_erp', keep=False)
-        duplicados_razon_social = selected_data.duplicated(subset='razon_social', keep=False)
+        duplicados_unidad_erp = df_filtered.duplicated(subset='cliente_id_erp', keep=False)
+        duplicados_razon_social = df_filtered.duplicated(subset='razon_social', keep=False)
         # Filtrar DataFrame original
-        resultado = selected_data[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
-        duplicados = selected_data[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
         
         duplicated = pd.DataFrame(duplicados)
         
@@ -153,11 +154,33 @@ class Cliente:
                 how='inner',
             )
             
-            resultado_filtrado = resultado[
-                ((resultado['razon_social_x'] != resultado['razon_social_y']) |  (resultado['identificacion_x'] != resultado['identificacion_y']))
-            ]
+            # resultado_filtrado = resultado[
+            #     ((resultado['razon_social_x'] != resultado['razon_social_y']) |  (resultado['identificacion_x'] != resultado['identificacion_y']))
+            # ]
             # Seleccionar las columnas deseadas
-            resultado_final = resultado_filtrado[['id', 'cliente_id_erp', 'razon_social_x', 'identificacion_x']].rename(columns={'razon_social_x':'razon_social','identificacion_x':'identificacion'})
+            resultado_final = resultado[['id', 'cliente_id_erp', 'razon_social_x', 'identificacion_x']].rename(columns={'razon_social_x':'razon_social','identificacion_x':'identificacion'})
+            
+            
+            # resultado = resultado_final[
+            #               ~resultado_final.apply(lambda x: 
+            #                 (
+            #                     (x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) or
+            #                     # (x['identificacion'] in set(df_obtener_clientes_existentes['identificacion'])) and
+            #                     (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0])
+            #                 ), 
+            #                 axis=1
+            #             )
+            #         ]
+            
+            resultado_ejemplo = resultado_final[
+                        resultado_final.apply(lambda x: 
+                            
+                            ((x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) and
+                             (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0])
+                            ), axis=1)
+                    ]
+            
+            print(resultado_ejemplo.to_dict(orient='records'))
             
             resultado_actualizacion = resultado_final.to_dict(orient='records')
             
@@ -197,14 +220,14 @@ class Cliente:
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         if len(novedades_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-            session.bulk_insert_mappings(ProyectoCliente, informacion_unidad_gerencia)
+            # session.bulk_insert_mappings(ProyectoCliente, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            session.bulk_update_mappings(ProyectoCliente, informacion_unidad_gerencia)
+            # session.bulk_update_mappings(ProyectoCliente, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
         return "No se han actualizado datos"
     
