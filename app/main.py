@@ -32,7 +32,7 @@ app.include_router(
     router_cli.cliente, prefix="/fts/parametros/cliente"
 )
 app.include_router(
-    router_e.estado, prefix="/fts/estado/cliente"
+    router_e.estado, prefix="/fts/parametros/estado"
 )
 
 

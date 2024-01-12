@@ -8,7 +8,7 @@ class ProyectoEstado(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     estado_id_erp = Column(Text, nullable=False, unique=True)
-    razon_social = Column(Text, unique=True, nullable=False)
+    descripcion = Column(Text, unique=False, nullable=False)
    
     def __init__(self, id, estado_id_erp, descripcion):
         self.id = id
@@ -19,6 +19,6 @@ class ProyectoEstado(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "ceco_id_erp": self.estado_id_erp,
+            "estado_id_erp": self.estado_id_erp,
             "descripcion": self.descripcion,
         }
