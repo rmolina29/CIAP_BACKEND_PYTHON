@@ -46,11 +46,12 @@ class Ceco:
     
     def __proceso_de_informacion_estructuracion(self):
         df = pd.read_excel(self.__file.file)
+        
+        df.columns = df.columns.str.strip()
         # Imprimir las columnas reales del DataFrame
         selected_columns = ["ID proyecto (ERP)", "Nombre", "Descripcion"]
 
         selected_data = df[selected_columns]
-        
           # Cambiar los Nombres de las columnas
         selected_data = selected_data.rename(
             columns={
@@ -207,7 +208,7 @@ class Ceco:
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-            session.bulk_insert_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            # session.bulk_insert_mappings(ProyectoCeco, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
 
         return "No se han registrado datos"
@@ -215,7 +216,7 @@ class Ceco:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            session.bulk_update_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            # session.bulk_update_mappings(ProyectoCeco, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
 
         return "No se han actualizado datos"

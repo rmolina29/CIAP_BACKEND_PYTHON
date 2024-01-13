@@ -19,32 +19,39 @@ class Gerencia:
         self.__obtener_gerencia_existente = self.obtener()
         # gerencia que me envia el usuario a traves del excel
         self.__gerencia = self.gerencia_usuario_procesada()
-        self.__validacion_contenido = len(self.__gerencia) > 0 or len(self.__obtener_gerencia_existente) > 0
+        self.__validacion_contenido = len(self.__gerencia) > 0 and len(self.__obtener_gerencia_existente) > 0
     
     
     def __proceso_de_informacion_estructuracion(self):
+        
         df = pd.read_excel(self.__file.file)
         # Imprimir las columnas reales del DataFrame
+        df.columns = df.columns.str.strip()
+        
         selected_columns = ["ERP", "Gerencia", "NIT"]
 
-        selected_data = df[selected_columns]
+        df_excel = df[selected_columns]
+        
+        if df_excel.empty:
+                return {'resultado': [], 'duplicados': []}
 
         # Cambiar los nombres de las columnas
-        selected_data = selected_data.rename(
+        df_excel = df_excel.rename(
             columns={
                "ERP": "unidad_gerencia_id_erp", 
                "Gerencia": "nombre", 
                 "NIT": "NIT"
             }
         )
-        selected_data["unidad_gerencia_id_erp"] = selected_data["unidad_gerencia_id_erp"].str.lower()
-        selected_data["nombre"] = selected_data["nombre"].str.lower()
+        
+        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].str.lower()
+        df_excel["nombre"] = df_excel["nombre"].str.lower()
 
-        duplicados_unidad_erp = selected_data.duplicated(subset='unidad_gerencia_id_erp', keep=False)
-        duplicados_nombre = selected_data.duplicated(subset='nombre', keep=False)
+        duplicados_unidad_erp = df_excel.duplicated(subset='unidad_gerencia_id_erp', keep=False)
+        duplicados_nombre = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        resultado = selected_data[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
-        duplicados = selected_data[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        resultado = df_excel[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
         duplicated = pd.DataFrame(duplicados)
         
@@ -57,11 +64,21 @@ class Gerencia:
         
     def validacion_informacion_gerencia_nit(self):
         try:
+            if not self.__gerencia_excel:
+                return {'log': [], 'gerencia_filtrada_excel': []}
+
             gerencia_log, gerencia_filtrada_excel = [], []
-            [(gerencia_filtrada_excel if isinstance(item.get('NIT'), (int,float)) else gerencia_log).append(item) for item in self.__gerencia_excel]
+            
+            for item in self.__gerencia_excel:
+                if isinstance(item.get('NIT'), (int, float)):
+                    gerencia_filtrada_excel.append(item)
+                else:
+                    gerencia_log.append(item)
             return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel}
+
         except Exception as e:
-            raise (f"Error al realizar la comparación: {str(e)}") from e
+            raise Exception(f"Error al realizar la comparación: {str(e)}") from e
+
     
     
     def obtener(self):
@@ -70,31 +87,34 @@ class Gerencia:
         gerencia_data = [gerencia.to_dict() for gerencia in informacion_gerencia]
         return gerencia_data
 
-    def registrar_informacion(self):
+    def transacciones(self):
         try:
-            novedades_de_gerencia = self.comparacion_gerencia()
-            # informacion a insertar
-            lista_insert = novedades_de_gerencia.get("insercion_datos")
-            gerencia_update = novedades_de_gerencia.get("actualizacion_datos")
-            sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")
-            excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")
+            if  self.__validacion_contenido:
+                novedades_de_gerencia = self.comparacion_gerencia()
+                # informacion a insertar
+                lista_insert = novedades_de_gerencia.get("insercion_datos")
+                gerencia_update = novedades_de_gerencia.get("actualizacion_datos")
+                sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")
+                excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")
 
-            log_transaccion_registro = self.insertar_inforacion(lista_insert)
-            log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
-            log_nit_invalido = self.validacion_informacion_gerencia_nit()
+                log_transaccion_registro = self.insertar_inforacion(lista_insert)
+                log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
+                log_nit_invalido = self.validacion_informacion_gerencia_nit()
 
-            log_transaccion_registro_gerencia = {
-                "log_transaccion_excel": {
-                    "gerencia_registradas": log_transaccion_registro,
-                    "gerencias_actualizadas": log_transaccion_actualizar,
-                    "gerencias_sin_cambios": sin_cambios,
-                    "gerencia_nit_no_existe": excepciones_id_usuario,
-                    "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
-                    "gerencias_duplicadas": self.__informacion_excel_duplicada
+                log_transaccion_registro_gerencia = {
+                    "log_transaccion_excel": {
+                        "gerencia_registradas": log_transaccion_registro,
+                        "gerencias_actualizadas": log_transaccion_actualizar,
+                        "gerencias_sin_cambios": sin_cambios,
+                        "gerencia_nit_no_existe": excepciones_id_usuario,
+                        "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
+                        "gerencias_duplicadas": self.__informacion_excel_duplicada
+                    }
                 }
-            }
 
-            return log_transaccion_registro_gerencia
+                return log_transaccion_registro_gerencia
+            
+            return {'Mensaje':'No hay informacion para realizar el proceso'}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -108,7 +128,7 @@ class Gerencia:
                 gerencias_nuevas,
                 gerencias_actualizacion,
                 no_sufieron_cambios,
-                excepciones_id_usuario,
+                excepciones_id_usuario
             ) = self.filtrar_gerencias()
 
          
@@ -116,7 +136,7 @@ class Gerencia:
                 "insercion_datos": gerencias_nuevas,
                 "actualizacion_datos": gerencias_actualizacion,
                 "excepciones_campos_unicos": no_sufieron_cambios,
-                "exepcion_id_usuario": excepciones_id_usuario,
+                "exepcion_id_usuario": excepciones_id_usuario
             }
 
             return resultado
@@ -135,7 +155,7 @@ class Gerencia:
             gerencias_nuevas,
             gerencias_actualizacion,
             excepciones_gerencia,
-            excepciones_id_usuario,
+            excepciones_id_usuario
         )
 
     #  esta funcion sirve para validar lo que se envia en excel contra lo que recibe en la base de datos
@@ -190,7 +210,6 @@ class Gerencia:
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
 
 
-
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
     def obtener_gerencias_actualizacion(self, excepciones_gerencia):
         # gerencias_actualizacion = [
@@ -230,17 +249,18 @@ class Gerencia:
                 how='inner',
             )
          
-            # Filtra el DataFrame resultante según la condición
-            
-            resultado_filtrado = resultado[
-                (resultado['responsable_id_x'] != 0) &
-                ((resultado['nombre_x'] != resultado['nombre_y']) |  (resultado['responsable_id_x'] != resultado['responsable_id_y']))
-            ]
-           
             # Seleccionar las columnas deseadas
-            resultado_final = resultado_filtrado[['id', 'unidad_gerencia_id_erp', 'nombre_x', 'responsable_id_x']].rename(columns={'nombre_x':'nombre','responsable_id_x':'responsable_id'})
             
-            gerencia_actualizar = resultado_final.to_dict(orient='records')
+            resultado_final = resultado[['id', 'unidad_gerencia_id_erp', 'nombre_x', 'responsable_id_x']].rename(columns={'nombre_x':'nombre','responsable_id_x':'responsable_id'})
+            
+            resultado = resultado_final[
+                         ~resultado_final.apply(lambda x: 
+                        ((x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
+                        (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0])
+                        ), axis=1)
+                ]
+            
+            gerencia_actualizar = resultado.to_dict(orient='records')
         
             filtrado_actualizacion = self.gerencias_mapeo_excepciones(
                 gerencia_actualizar, excepciones_gerencia
@@ -357,7 +377,7 @@ class Gerencia:
         try:
             if len(novedades_de_gerencia) > 0:
                 actualizacion_data = self.procesar_datos_minuscula(novedades_de_gerencia)
-                session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                # session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -371,7 +391,7 @@ class Gerencia:
             # print(f' actualizacionnn {actualizacion_gerencia is None}')
             if len(actualizacion_gerencia) > 0  :
                 actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
-                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"

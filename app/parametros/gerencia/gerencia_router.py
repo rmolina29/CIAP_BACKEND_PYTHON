@@ -8,7 +8,7 @@ gerencia = APIRouter(tags=['Gerencia'])
 async def subir_archivo(file: UploadFile = File(...)):
     try:
         servicio_gerencia = Gerencia(file)
-        enviar_informacion = servicio_gerencia.registrar_informacion()
+        enviar_informacion = servicio_gerencia.transacciones()
         # return enviar_informacion
         return JSONResponse(content=enviar_informacion, media_type="application/json")
     except Exception as e:

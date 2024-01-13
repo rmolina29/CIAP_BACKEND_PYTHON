@@ -16,12 +16,14 @@ class Direccion:
         self.__direcion_excel = resultado_estructuracion['resultado']
         self.__obtener_unidad_organizativa_existentes = self.obtener_direccion()
         self.__unidad_organizativa = self.proceso_informacion_con_id_gerencia()
-        self.__validacion_contenido = len(self.__unidad_organizativa) > 0 or len(self.__obtener_unidad_organizativa_existentes) > 0
+        self.__validacion_contenido = len(self.__unidad_organizativa) > 0 and len(self.__obtener_unidad_organizativa_existentes) > 0
         
     
     def __proceso_de_informacion_estructuracion(self):
         df = pd.read_excel(self.__file.file)
         # Imprimir las columnas reales del DataFrame
+        df.columns = df.columns.str.strip()
+        
         selected_columns = ["ID Dirección (ERP)", "Dirección", "ID Gerencia (ERP)"]
 
         selected_data = df[selected_columns]

@@ -34,6 +34,7 @@ class Estado:
     
     def __proceso_de_informacion_estructuracion(self):
         df = pd.read_excel(self.__file.file)
+        df.columns = df.columns.str.strip()
         # Imprimir las columnas reales del DataFrame
         selected_columns = ["ID Estado (ERP)", "Estado"]
 
@@ -67,7 +68,7 @@ class Estado:
     
     
     def validacion_existe_informacion(self)->bool:
-        return len(self.__estados) > 0 or len(self.__obtener_estados_existente)>0
+        return len(self.__estados) > 0 and len(self.__obtener_estados_existente)>0
     
     
     

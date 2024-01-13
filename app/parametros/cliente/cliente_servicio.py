@@ -4,7 +4,7 @@ import math
 from app.database.db import session
 from app.parametros.cliente.model.cliente_model import ProyectoCliente
 from typing import List
-# from sqlalchemy import and_
+
 
 class Cliente:
     def __init__(self,file:UploadFile) -> None:
@@ -16,63 +16,75 @@ class Cliente:
         
         
     def validacion_existe_informacion(self)->bool:
-        return len(self.__data_usuario_cliente) > 0 or len(self.__obtener_clientes_existente)>0
+        return len(self.__data_usuario_cliente) > 0 and len(self.__obtener_clientes_existente)>0
 
     def __proceso_de_informacion_estructuracion(self):
-        df = pd.read_excel(self.__file.file)
-        # Imprimir las columnas reales del DataFrame
-        selected_columns = ["ID Cliente (ERP)", "Nombre", "NIT"]
+            df = pd.read_excel(self.__file.file)
+            # Imprimir las columnas reales del DataFrame
+            df.columns = df.columns.str.strip()
+            
+            selected_columns = ["ID Cliente (ERP)", "Nombre", "NIT"]
 
-        selected_data = df[selected_columns]
-        
-          # Cambiar los nombres de las columnas
-        selected_data = selected_data.rename(
-            columns={
-               "ID Cliente (ERP)": "cliente_id_erp", 
-                "Nombre": "razon_social", 
-                "NIT": "identificacion"
-            }
-        )
-        
-        selected_data["cliente_id_erp"] = selected_data["cliente_id_erp"].str.lower()
-        selected_data["razon_social"] = selected_data["razon_social"].str.lower()
-        
-        df_filtered = selected_data.dropna()
-        
-        duplicados_unidad_erp = df_filtered.duplicated(subset='cliente_id_erp', keep=False)
-        duplicados_razon_social = df_filtered.duplicated(subset='razon_social', keep=False)
-        # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
-        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
-        
-        duplicated = pd.DataFrame(duplicados)
-        
-        if duplicated.isnull().any(axis=1).any():
-            lista_gerencias = []
-        else:
-            lista_gerencias = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
-        
-        return {'resultado':resultado,'duplicados':lista_gerencias}
+            df_excel = df[selected_columns]
+            
+            if df_excel.empty:
+                return {'resultado': [], 'duplicados': []}
+            
+            # Cambiar los nombres de las columnas
+            df_excel = df_excel.rename(
+                    columns={
+                    "ID Cliente (ERP)": "cliente_id_erp", 
+                        "Nombre": "razon_social", 
+                        "NIT": "identificacion"
+                    }
+                )
+            df_excel["cliente_id_erp"] = df_excel["cliente_id_erp"].str.lower()
+            df_excel["razon_social"] = df_excel["razon_social"].str.lower()
+                
+            df_filtered = df_excel.dropna()
+                
+            duplicados_unidad_erp = df_filtered.duplicated(subset='cliente_id_erp', keep=False)
+            duplicados_razon_social = df_filtered.duplicated(subset='razon_social', keep=False)
+                # Filtrar DataFrame original
+            resultado = df_filtered[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+            duplicados = df_filtered[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+                
+            duplicated = pd.DataFrame(duplicados)
+                
+            if duplicated.isnull().any(axis=1).any():
+                lista_gerencias = []
+            else:
+                lista_gerencias = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
+                
+            return {'resultado':resultado,'duplicados':lista_gerencias}
+          
+                
     
     def transacciones(self):
+             
+        validacion = self.validacion_existe_informacion()
         
-        data_excel_filtro = self.validacion_informacion_cliente_nit()
-        obtener_duplicados = self.__proceso_de_informacion_estructuracion()
-        registro_clientes = self.filtro_clientes_nuevos()
-        actualizar_clientes = self.filtro_cliente_actualizar()
-                
-        log_transaccion_registro_gerencia = {
-                "log_transaccion_excel": {
-                   'excepciones':self.obtener_excepciones_datos_unicos(),
-                   'sin_cambios':self.obtener_no_sufrieron_cambios(),
-                   'nit_invalidos':data_excel_filtro['log'],
-                   'registo':self.insertar_informacion(registro_clientes),
-                   'actualizar':self.actualizar_informacion(actualizar_clientes),
-                   'duplicados':obtener_duplicados['duplicados'],
-                }
-        }
+        if validacion:
         
-        return log_transaccion_registro_gerencia
+            data_excel_filtro = self.validacion_informacion_cliente_nit()
+            obtener_duplicados = self.__proceso_de_informacion_estructuracion()
+            registro_clientes = self.filtro_clientes_nuevos()
+            actualizar_clientes = self.filtro_cliente_actualizar()
+                    
+            log_transaccion_registro_gerencia = {
+                    "log_transaccion_excel": {
+                    'excepciones':self.obtener_excepciones_datos_unicos(),
+                    'sin_cambios':self.obtener_no_sufrieron_cambios(),
+                    'nit_invalidos':data_excel_filtro['log'],
+                    'registo':self.insertar_informacion(registro_clientes),
+                    'actualizar':self.actualizar_informacion(actualizar_clientes),
+                    'duplicados':obtener_duplicados['duplicados'],
+                    }
+            }
+            
+            return log_transaccion_registro_gerencia
+        
+        return {'Mensaje':'No hay informacion para realizar el proceso'}
     
     
     def obtener(self) -> List:
@@ -84,9 +96,15 @@ class Cliente:
     def validacion_informacion_cliente_nit(self):
         try:
             resultado_estructuracion = self.__proceso_de_informacion_estructuracion()
-            cliente_log, cliente_filtro_excel = [], []
-            [(cliente_filtro_excel if isinstance(item.get('identificacion'), (int,float)) else cliente_log).append(item) for item in resultado_estructuracion['resultado']]
-            return {'log': cliente_log, 'cliente_filtro_excel': cliente_filtro_excel}
+            
+            if len(resultado_estructuracion['resultado'])!=0:
+                
+                cliente_log, cliente_filtro_excel = [], []
+                [(cliente_filtro_excel if isinstance(item.get('identificacion'), (int,float)) else cliente_log).append(item) for item in resultado_estructuracion['resultado']]
+                return {'log': cliente_log, 'cliente_filtro_excel': cliente_filtro_excel}
+            
+            return {'log': [], 'cliente_filtro_excel': []}
+        
         except Exception as e:
             raise (f"Error al realizar la comparación: {str(e)}") from e
     
@@ -95,6 +113,7 @@ class Cliente:
         validacion = self.validacion_existe_informacion()
         
         if validacion:
+            
             df_clientes = pd.DataFrame(self.__data_usuario_cliente)
             df_obtener_clientes_existentes = pd.DataFrame(self.__obtener_clientes_existente)
             
@@ -114,20 +133,7 @@ class Cliente:
                          ), axis=1)
                 ]
                                 
-            # Resultado final
             clientes_registro = resultado.to_dict(orient='records')
-            
-            # filtro_registro = self.filtro_identificacion_unica(
-            #     clientes_registro
-            # )
-            # if len(filtro_registro) == 0:
-            #     return clientes_registro
-            
-            # df_registro = pd.DataFrame(filtro_registro)
-            # registros = df_registro.drop(columns=['id']) 
-            # registros_unidad_organizativa = registros.to_dict(orient='records')
-            
-            # print(registros_unidad_organizativa)
         else:
             clientes_registro = []
             
@@ -244,3 +250,5 @@ class Cliente:
             df_obtener_clientes_existentes["razon_social"] = df_obtener_clientes_existentes["razon_social"].str.lower()
             
             return df_clientes,df_obtener_clientes_existentes
+
+
