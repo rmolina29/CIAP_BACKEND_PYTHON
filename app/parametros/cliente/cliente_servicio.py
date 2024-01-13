@@ -63,6 +63,7 @@ class Cliente:
                 
         log_transaccion_registro_gerencia = {
                 "log_transaccion_excel": {
+                   'excepciones':self.obtener_excepciones_datos_unicos(),
                    'sin_cambios':self.obtener_no_sufrieron_cambios(),
                    'nit_invalidos':data_excel_filtro['log'],
                    'registo':self.insertar_informacion(registro_clientes),
@@ -137,15 +138,9 @@ class Cliente:
         validacion = self.validacion_existe_informacion()
         
         if validacion:
-            df_clientes = pd.DataFrame(self.__data_usuario_cliente)
-            df_obtener_clientes_existentes = pd.DataFrame(self.__obtener_clientes_existente)
             
-            df_clientes["cliente_id_erp"] = df_clientes["cliente_id_erp"].str.lower()
-            df_obtener_clientes_existentes["cliente_id_erp"] = df_obtener_clientes_existentes["cliente_id_erp"].str.lower()
-            
-            df_clientes["razon_social"] = df_clientes["razon_social"].str.lower()
-            df_obtener_clientes_existentes["razon_social"] = df_obtener_clientes_existentes["razon_social"].str.lower()
-            
+            df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
+
             resultado = pd.merge(
                 df_clientes[['cliente_id_erp','razon_social','identificacion']],
                 df_obtener_clientes_existentes[['id','cliente_id_erp','razon_social','identificacion']],
@@ -154,42 +149,27 @@ class Cliente:
                 how='inner',
             )
             
-            # resultado_filtrado = resultado[
-            #     ((resultado['razon_social_x'] != resultado['razon_social_y']) |  (resultado['identificacion_x'] != resultado['identificacion_y']))
-            # ]
-            # Seleccionar las columnas deseadas
             resultado_final = resultado[['id', 'cliente_id_erp', 'razon_social_x', 'identificacion_x']].rename(columns={'razon_social_x':'razon_social','identificacion_x':'identificacion'})
             
-            
-            # resultado = resultado_final[
-            #               ~resultado_final.apply(lambda x: 
-            #                 (
-            #                     (x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) or
-            #                     # (x['identificacion'] in set(df_obtener_clientes_existentes['identificacion'])) and
-            #                     (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0])
-            #                 ), 
-            #                 axis=1
-            #             )
-            #         ]
-            
-            resultado_ejemplo = resultado_final[
-                        resultado_final.apply(lambda x: 
-                            
-                            ((x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) and
-                             (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0])
-                            ), axis=1)
+            cliente_actualizar = resultado_final[
+                          ~resultado_final.apply(lambda x: (
+                            (x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) and
+                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0]) 
+                            or
+                            (x['identificacion'] in set(df_obtener_clientes_existentes['identificacion'])) and
+                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['identificacion'] == x['identificacion'], 'cliente_id_erp'].values[0])
+                        ), axis=1)
                     ]
             
-            print(resultado_ejemplo.to_dict(orient='records'))
+            resultado_actualizacion = cliente_actualizar.to_dict(orient='records')
+            cliente_filtro = self.obtener_no_sufrieron_cambios()
             
-            resultado_actualizacion = resultado_final.to_dict(orient='records')
+            if len(cliente_filtro) != 0:
+                df_cliente = pd.DataFrame(cliente_filtro)
+                df_filtrado = cliente_actualizar[~cliente_actualizar.isin(df_cliente.to_dict('list')).all(axis=1)]
+                return df_filtrado.to_dict(orient='records')
             
-            # filtrado_actualizacion = self.filtro_identificacion_unica(
-            #     resultado_actualizacion
-            # )
-            # if len(filtrado_actualizacion) == 0:
-            #     return resultado_actualizacion
-            
+            return resultado_actualizacion
         else:
             resultado_actualizacion = []
             
@@ -198,14 +178,8 @@ class Cliente:
     def obtener_no_sufrieron_cambios(self):
         validacion = self.validacion_existe_informacion()
         if validacion:
-            df_clientes = pd.DataFrame(self.__data_usuario_cliente)
-            df_obtener_clientes_existentes = pd.DataFrame(self.__obtener_clientes_existente)
             
-            df_clientes["cliente_id_erp"] = df_clientes["cliente_id_erp"].str.lower()
-            df_obtener_clientes_existentes["cliente_id_erp"] = df_obtener_clientes_existentes["cliente_id_erp"].str.lower()
-            
-            df_clientes["razon_social"] = df_clientes["razon_social"].str.lower()
-            df_obtener_clientes_existentes["razon_social"] = df_obtener_clientes_existentes["razon_social"].str.lower()
+            df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
             
             resultado = pd.merge(df_clientes, df_obtener_clientes_existentes, how='inner', on=['cliente_id_erp', 'razon_social', 'identificacion'])
             
@@ -215,19 +189,40 @@ class Cliente:
 
         return clientes_sin_ningun_cambio
     
-    
+    def obtener_excepciones_datos_unicos(self):
+        validacion = self.validacion_existe_informacion()
+        
+        if validacion:
+            df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
+
+            excepciones = df_clientes[
+                          df_clientes.apply(lambda x: (
+                            (x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) and
+                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0]) 
+                            or
+                            (x['identificacion'] in set(df_obtener_clientes_existentes['identificacion'])) and
+                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['identificacion'] == x['identificacion'], 'cliente_id_erp'].values[0])
+                        ), axis=1)
+                    ]
+            
+            resultado_actualizacion = excepciones.to_dict(orient='records')
+      
+        else:
+            resultado_actualizacion = []
+            
+        return resultado_actualizacion
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         if len(novedades_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-            # session.bulk_insert_mappings(ProyectoCliente, informacion_unidad_gerencia)
+            session.bulk_insert_mappings(ProyectoCliente, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            # session.bulk_update_mappings(ProyectoCliente, informacion_unidad_gerencia)
+            session.bulk_update_mappings(ProyectoCliente, informacion_unidad_gerencia)
             return informacion_unidad_gerencia
         return "No se han actualizado datos"
     
@@ -236,38 +231,16 @@ class Cliente:
         df[['cliente_id_erp', 'razon_social']] = df[['cliente_id_erp', 'razon_social']].apply(lambda x: x.str.lower())
         return df.to_dict(orient='records')
     
-    # def filtro_identificacion_unica(self,clientes):
-        
-    #     validacion = self.validacion_existe_informacion()
-        
-    #     if not validacion:
-    #         return []
-        
-    #     resultados = []
-    #     for cliente in clientes:
-    #             id = cliente['id']
-    #             identificacion = cliente['identificacion']
-    #             # Verificar si el valor es un número y no es NaN
-    #             usuario = self.obtener_identificacion_existente(int(id),int(identificacion))
 
-    #             resultados.append({
-    #                     "id": usuario.to_dict().get("id") if usuario else 0,
-    #                     "cliente_id_erp": cliente["cliente_id_erp"],
-    #                     "razon_social": cliente["razon_social"],
-    #                     "identificacion":cliente['identificacion']
-    #                 })
-    #     print(resultados)       
-    #     return resultados
-
+    def obtener_data_serializada(self):
         
-    # def obtener_identificacion_existente(self,id,identificacion):
-    #     return (
-    #         session.query(ProyectoCliente)
-    #         .filter(
-    #             and_(
-    #                 ProyectoCliente.identificacion == identificacion,
-    #                 ProyectoCliente.id != id,
-    #             )
-    #         )
-    #         .first()
-    #     )
+            df_clientes = pd.DataFrame(self.__data_usuario_cliente)
+            df_obtener_clientes_existentes = pd.DataFrame(self.__obtener_clientes_existente)
+            
+            df_clientes["cliente_id_erp"] = df_clientes["cliente_id_erp"].str.lower()
+            df_obtener_clientes_existentes["cliente_id_erp"] = df_obtener_clientes_existentes["cliente_id_erp"].str.lower()
+            
+            df_clientes["razon_social"] = df_clientes["razon_social"].str.lower()
+            df_obtener_clientes_existentes["razon_social"] = df_obtener_clientes_existentes["razon_social"].str.lower()
+            
+            return df_clientes,df_obtener_clientes_existentes
