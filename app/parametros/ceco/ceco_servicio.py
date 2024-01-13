@@ -168,7 +168,6 @@ class Ceco:
                 df_filtrado = resultado[~resultado.isin(df_ceco.to_dict('list')).all(axis=1)]
                 return df_filtrado.to_dict(orient='records')
             
-            return resultado_actualizacion
         else:
             resultado_actualizacion = []
             

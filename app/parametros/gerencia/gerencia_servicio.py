@@ -96,6 +96,7 @@ class Gerencia:
                 gerencia_update = novedades_de_gerencia.get("actualizacion_datos")
                 sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")
                 excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")
+                excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")
 
                 log_transaccion_registro = self.insertar_inforacion(lista_insert)
                 log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
@@ -108,6 +109,7 @@ class Gerencia:
                         "gerencias_sin_cambios": sin_cambios,
                         "gerencia_nit_no_existe": excepciones_id_usuario,
                         "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
+                        "gerencias_existentes":excepciones_gerencia,
                         "gerencias_duplicadas": self.__informacion_excel_duplicada
                     }
                 }
@@ -128,7 +130,8 @@ class Gerencia:
                 gerencias_nuevas,
                 gerencias_actualizacion,
                 no_sufieron_cambios,
-                excepciones_id_usuario
+                excepciones_id_usuario,
+                excepciones_existente_gerencia
             ) = self.filtrar_gerencias()
 
          
@@ -136,7 +139,8 @@ class Gerencia:
                 "insercion_datos": gerencias_nuevas,
                 "actualizacion_datos": gerencias_actualizacion,
                 "excepciones_campos_unicos": no_sufieron_cambios,
-                "exepcion_id_usuario": excepciones_id_usuario
+                "exepcion_id_usuario": excepciones_id_usuario,
+                "excepcion_gerencia_existentes":excepciones_existente_gerencia
             }
 
             return resultado
@@ -147,15 +151,15 @@ class Gerencia:
         excepciones_gerencia = self.obtener_no_sufrieron_cambios()
         excepciones_id_usuario = self.excepciones_id_usuario()
         gerencias_nuevas = self.filtrar_gerencias_nuevas(excepciones_gerencia)
-        gerencias_actualizacion = self.obtener_gerencias_actualizacion(
-            excepciones_gerencia
-        )
+        gerencias_actualizacion = self.obtener_gerencias_actualizacion()
+        excepciones_existente_gerencia = self.obtener_excepciones_datos_unicos()
 
         return (
             gerencias_nuevas,
             gerencias_actualizacion,
             excepciones_gerencia,
-            excepciones_id_usuario
+            excepciones_id_usuario,
+            excepciones_existente_gerencia
         )
 
     #  esta funcion sirve para validar lo que se envia en excel contra lo que recibe en la base de datos
@@ -190,6 +194,7 @@ class Gerencia:
                     (df_unidad_gerencia['responsable_id'] != 0) &
                     ~df_unidad_gerencia.apply(lambda x: ((x['unidad_gerencia_id_erp'] in set(df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_gerencia_existentes['nombre']))), axis=1)
                 ]
+                
                                 
                 nuevas_gerencias_a_registrar = resultado.to_dict(orient='records')
                 
@@ -211,33 +216,17 @@ class Gerencia:
 
 
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
-    def obtener_gerencias_actualizacion(self, excepciones_gerencia):
-        # gerencias_actualizacion = [
-        #     {
-        #         "id": g["id"],
-        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-        #         "nombre": item["nombre"],
-        #         "responsable_id": item["responsable_id"],
-        #     }
-        #     for item in self.__gerencia
-        #     for g in self.__obtener_gerencia_existente
-        #     if (
-        #         item["responsable_id"] != 0
-        #         and 
-        #         item["unidad_gerencia_id_erp"].strip().lower() == g["unidad_gerencia_id_erp"].strip().lower()
-        #         and 
-        #         (item['nombre'].strip().lower() != g['nombre'].strip().lower() or
-        #         item['responsable_id'] != g['responsable_id'])
-        #     )
-        # ]
-        
-        # print(gerencias_actualizacion)
+    def obtener_gerencias_actualizacion(self):
         
         if self.__validacion_contenido:
             df_gerencia = pd.DataFrame(self.__gerencia)
             df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
             
             df_gerencia['responsable_id'] = df_gerencia['responsable_id'].astype(int)
+            
+            df_gerencia['nombre'] = df_gerencia['nombre'].str.lower()
+            df_obtener_unidad_de_gerencia['nombre'] = df_obtener_unidad_de_gerencia['nombre'].str.lower()
+            
             df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp'].str.lower()
             df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'].str.lower()
             
@@ -253,21 +242,26 @@ class Gerencia:
             
             resultado_final = resultado[['id', 'unidad_gerencia_id_erp', 'nombre_x', 'responsable_id_x']].rename(columns={'nombre_x':'nombre','responsable_id_x':'responsable_id'})
             
-            resultado = resultado_final[
-                         ~resultado_final.apply(lambda x: 
-                        ((x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
-                        (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0])
+            gerencia_actualizar = resultado_final[
+                          ~resultado_final.apply(lambda x: (
+                            (x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
+                            (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0]) 
+                            or
+                            # filtro para la misma unidad de gerencia pero con diferente id de responsable
+                            (x['responsable_id'] in set(df_obtener_unidad_de_gerencia['responsable_id'])) and
+                            (x['unidad_gerencia_id_erp'] == df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['responsable_id'] != x['responsable_id'], 'unidad_gerencia_id_erp'].values[0])
                         ), axis=1)
-                ]
+                    ]
             
-            gerencia_actualizar = resultado.to_dict(orient='records')
-        
-            filtrado_actualizacion = self.gerencias_mapeo_excepciones(
-                gerencia_actualizar, excepciones_gerencia
-            )
+            filtrado_actualizacion = gerencia_actualizar.to_dict(orient='records')
             
-            if len(filtrado_actualizacion) == 0:
-                    return gerencia_actualizar
+            filtro_gerencia = self.obtener_no_sufrieron_cambios()
+ 
+            if len(filtro_gerencia) != 0:
+                df_gerencia = pd.DataFrame(filtro_gerencia)
+                columnas_filtrar = ['unidad_gerencia_id_erp', 'nombre', 'responsable_id']
+                df_filtrado = gerencia_actualizar[~gerencia_actualizar[columnas_filtrar].isin(df_gerencia[columnas_filtrar].to_dict('list')).all(axis=1)]
+                return df_filtrado.to_dict(orient='records')
         else:
             filtrado_actualizacion = []
         
@@ -295,16 +289,13 @@ class Gerencia:
             df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre'].str.lower()
             
             no_sufren_cambios = pd.merge(
-                df_unidad_gerencia[['unidad_gerencia_id_erp','nombre','responsable_id']],
-                df_obtener_unidad_gerencia_existentes[['unidad_gerencia_id_erp','nombre','responsable_id']],
-                on='nombre',
-                how='inner'
+                df_unidad_gerencia,
+                df_obtener_unidad_gerencia_existentes,
+                how='inner',
+                on=['unidad_gerencia_id_erp','nombre','responsable_id']
             )
-
-            resultado_final = no_sufren_cambios[['unidad_gerencia_id_erp_x', 'nombre', 'responsable_id_x']].rename(
-                columns={'unidad_gerencia_id_erp_x': 'unidad_gerencia_id_erp', 'responsable_id_x': 'responsable_id'})
             
-            gerencias_sin_cambios = resultado_final.to_dict(orient='records')
+            gerencias_sin_cambios = no_sufren_cambios.to_dict(orient='records')
         else:
             gerencias_sin_cambios = []
 
@@ -388,7 +379,6 @@ class Gerencia:
 
     def actualizar_informacion(self, actualizacion_gerencia):
         try:
-            # print(f' actualizacionnn {actualizacion_gerencia is None}')
             if len(actualizacion_gerencia) > 0  :
                 actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
                 # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
@@ -443,3 +433,33 @@ class Gerencia:
         df = pd.DataFrame(datos)
         df[['unidad_gerencia_id_erp', 'nombre']] = df[['unidad_gerencia_id_erp', 'nombre']].apply(lambda x: x.str.lower())
         return df.to_dict(orient='records')
+
+    
+        # obtengo las excepciones del usuario me esta enviando informacion que debe ser unica y la filtro lo que me viene en la bd contra lo que me envia el usuario
+    # y le devuelvo la informacion
+    def obtener_excepciones_datos_unicos(self):
+        validacion = self.__validacion_contenido
+        
+        if validacion:
+            df_gerencia = pd.DataFrame(self.__gerencia)
+            df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
+            
+            df_gerencia['nombre'] = df_gerencia['nombre'].str.lower()
+            df_obtener_unidad_de_gerencia['nombre'] = df_obtener_unidad_de_gerencia['nombre'].str.lower()
+            
+            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp'].str.lower()
+            df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'].str.lower()
+            
+            
+            gerencias_existentes = df_gerencia[
+                    df_gerencia.apply(lambda x: 
+                        ((x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
+                        (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0])
+                        ), axis=1)
+                ]
+            
+            obtener_excepcion = gerencias_existentes.to_dict(orient='records')
+        else:
+            obtener_excepcion = []
+            
+        return obtener_excepcion
