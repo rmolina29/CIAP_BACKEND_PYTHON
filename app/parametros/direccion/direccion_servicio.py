@@ -298,20 +298,32 @@ class Direccion:
         return direccion
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
-        if len(novedades_unidad_organizativa) > 0:
-            # informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-            # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
-            return novedades_unidad_organizativa
+        try:
+            if len(novedades_unidad_organizativa) > 0:
+                informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
+                session.bulk_insert_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+                return novedades_unidad_organizativa
 
-        return "No se han registrado datos"
+            return "No se han registrado datos"
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise (e)
+        finally:
+            session.close()
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
-        if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            # informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            # session.bulk_update_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
-            return actualizacion_gerencia_unidad_organizativa
+        try:
+            if len(actualizacion_gerencia_unidad_organizativa) > 0:
+                informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
+                session.bulk_update_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+                return actualizacion_gerencia_unidad_organizativa
 
-        return "No se han actualizado datos"
+            return "No se han actualizado datos"
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise (e)
+        finally:
+            session.close()
     
     def proceso_informacion_con_id_gerencia(self):
         try:
@@ -344,10 +356,10 @@ class Direccion:
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
         
         
-    # def procesar_datos_minuscula(self,datos):
-    #     df = pd.DataFrame(datos)
-    #     df[['unidad_organizativa_id_erp', 'nombre']] = df[['unidad_organizativa_id_erp', 'nombre']].apply(lambda x: x.str.lower())
-    #     return df.to_dict(orient='records')
+    def procesar_datos_minuscula(self,datos):
+        df = pd.DataFrame(datos)
+        df[['unidad_organizativa_id_erp', 'nombre']] = df[['unidad_organizativa_id_erp', 'nombre']].apply(lambda x: x.str.lower())
+        return df.to_dict(orient='records')
     
     
     def gerencias_existentes(self):

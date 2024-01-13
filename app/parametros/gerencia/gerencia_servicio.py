@@ -368,7 +368,7 @@ class Gerencia:
         try:
             if len(novedades_de_gerencia) > 0:
                 actualizacion_data = self.procesar_datos_minuscula(novedades_de_gerencia)
-                # session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -381,7 +381,7 @@ class Gerencia:
         try:
             if len(actualizacion_gerencia) > 0  :
                 actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
-                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"
