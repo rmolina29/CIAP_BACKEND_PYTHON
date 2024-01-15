@@ -90,8 +90,8 @@ class Ceco:
             }
         )
         
-        selected_data["ceco_id_erp"] = selected_data["ceco_id_erp"].str.lower()
-        selected_data["nombre"] = selected_data["nombre"].str.lower()
+        selected_data["ceco_id_erp"] = selected_data["ceco_id_erp"]
+        selected_data["nombre"] = selected_data["nombre"]
         
         # uso de eliminacion de espacios en blancos
         df_filtered = selected_data.dropna()
@@ -117,17 +117,17 @@ class Ceco:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
                 
-            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"].str.lower()
-            df_ceco["nombre"] = df_ceco["nombre"].str.lower()
+            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
+            df_ceco["nombre"] = df_ceco["nombre"]
 
-            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"].str.lower()
-            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"].str.lower()
-                    
+            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
+            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
+            
             resultado = df_ceco[
                         ~df_ceco.apply(lambda x: 
-                            ((x['ceco_id_erp'] in set(df_obtener_ceco_existentes['ceco_id_erp'])) 
+                            ((x['ceco_id_erp'].lower() in set(df_obtener_ceco_existentes['ceco_id_erp'].str.lower())) 
                             or 
-                            (x['nombre'] in set(df_obtener_ceco_existentes['nombre']))
+                            (x['nombre'].lower() in set(df_obtener_ceco_existentes['nombre'].str.lower()))
                             ), axis=1)
                     ]
   
@@ -143,11 +143,11 @@ class Ceco:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
             
-            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"].str.lower()
-            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"].str.lower()
+            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
+            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
             
-            df_ceco["nombre"] = df_ceco["nombre"].str.lower()
-            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"].str.lower()
+            df_ceco["nombre"] = df_ceco["nombre"]
+            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
             
             resultado = pd.merge(df_ceco, df_obtener_ceco_existentes, how='inner', on=['ceco_id_erp', 'nombre','descripcion'])
             
@@ -164,11 +164,11 @@ class Ceco:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
             
-            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"].str.lower()
-            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"].str.lower()
+            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
+            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
             
-            df_ceco["nombre"] = df_ceco["nombre"].str.lower()
-            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"].str.lower()
+            df_ceco["nombre"] = df_ceco["nombre"]
+            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
             
             resultado = pd.merge(
                 df_ceco[['ceco_id_erp','nombre','descripcion']],
@@ -194,7 +194,7 @@ class Ceco:
             
             if len(ceco_filtro) != 0:
                 df_ceco = pd.DataFrame(ceco_filtro)
-                df_filtrado = resultado[~resultado.isin(df_ceco.to_dict('list')).all(axis=1)]
+                df_filtrado = resultado[~resultado[['nombre','descripcion']].isin(df_ceco[['nombre','descripcion']].to_dict('list')).all(axis=1)]
                 filtro_ceco_actualizacion = df_filtrado.to_dict(orient='records')
                 return {'respuesta':filtro_ceco_actualizacion,'estado':2} if len(filtro_ceco_actualizacion) > 0 else {'respuesta':filtro_ceco_actualizacion,'estado':0}
             
@@ -212,22 +212,32 @@ class Ceco:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
             
-            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"].str.lower()
-            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"].str.lower()
+            df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
+            df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
             
-            df_ceco["nombre"] = df_ceco["nombre"].str.lower()
-            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"].str.lower()
+            df_ceco["nombre"] = df_ceco["nombre"]
+            df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
             
             
             resultado = df_ceco[
                         df_ceco.apply(lambda x: 
-                            
-                            ((x['nombre'] in set(df_obtener_ceco_existentes['nombre'])) and
-                             (x['ceco_id_erp'] != df_obtener_ceco_existentes.loc[df_obtener_ceco_existentes['nombre'] == x['nombre'], 'ceco_id_erp'].values[0])
-                            ), axis=1)
+                            (
+                                (x['nombre'].lower() in df_obtener_ceco_existentes['nombre'].str.lower().values) and
+                                (x['ceco_id_erp'].lower() != df_obtener_ceco_existentes.loc[df_obtener_ceco_existentes['nombre'].str.lower() == x['nombre'].lower(), 'ceco_id_erp'].str.lower().values[0])
+                            ),
+                            axis=1
+                        ) |
+                        df_ceco['ceco_id_erp'].str.lower().isin(df_obtener_ceco_existentes['ceco_id_erp'].str.lower().values)
                     ]
-            
+                        
             obtener_excepciones = resultado.to_dict(orient='records')
+            ceco_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
+            
+            if len(ceco_filtro) != 0:
+                df_cliente = pd.DataFrame(ceco_filtro)
+                df_filtrado = resultado[~resultado[['cliente_id_erp','razon_social','identificacion']].isin(df_cliente[['cliente_id_erp','razon_social','identificacion']].to_dict('list')).all(axis=1)]
+                filtro_cliente_actualizacion =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_cliente_actualizacion,'estado':3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta':filtro_cliente_actualizacion,'estado':0}
       
         else:
             obtener_excepciones = []
@@ -236,22 +246,20 @@ class Ceco:
     
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
-            informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-            session.bulk_insert_mappings(ProyectoCeco, informacion_unidad_gerencia)
-            return informacion_unidad_gerencia
+            # session.bulk_insert_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            return novedades_unidad_organizativa
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            session.bulk_update_mappings(ProyectoCeco, informacion_unidad_gerencia)
-            return informacion_unidad_gerencia
+            # session.bulk_update_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            return actualizacion_gerencia_unidad_organizativa
 
         return "No se han actualizado datos"
     
     
-    def procesar_datos_minuscula(self,datos):
-        df = pd.DataFrame(datos)
-        df[['ceco_id_erp', 'nombre']] = df[['ceco_id_erp', 'nombre']].apply(lambda x: x.str.lower())
-        return df.to_dict(orient='records')
+    # def procesar_datos_minuscula(self,datos):
+    #     df = pd.DataFrame(datos)
+    #     df[['ceco_id_erp', 'nombre']] = df[['ceco_id_erp', 'nombre']].apply(lambda x: x.str.lower())
+    #     return df.to_dict(orient='records')

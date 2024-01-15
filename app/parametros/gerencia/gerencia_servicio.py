@@ -206,8 +206,6 @@ class Gerencia:
                 df_unidad_gerencia = pd.DataFrame(self.__gerencia)
                 df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
                 
-           
-                
                 df_unidad_gerencia['responsable_id'] = df_unidad_gerencia['responsable_id'].astype(int)
                 df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre'].str.lower()
                 

@@ -238,11 +238,7 @@ class Cliente:
         if validacion:
             df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
             
-            print(df_clientes)
-            print(df_obtener_clientes_existentes)
             
-
-
             excepciones = df_clientes[
                 df_clientes.apply(
                     lambda x: (
@@ -256,12 +252,20 @@ class Cliente:
                         )
                     ),
                     axis=1
-                )
+                ) |
+                        df_clientes['cliente_id_erp'].str.lower().isin(df_obtener_clientes_existentes['cliente_id_erp'].str.lower().values)
             ]
 
             resultado_actualizacion = excepciones.to_dict(orient='records')
-      
-        else:
+            
+            cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
+            
+            if len(cliente_filtro) != 0:
+                df_cliente = pd.DataFrame(cliente_filtro)
+                df_filtrado = excepciones[~excepciones[['cliente_id_erp','razon_social','identificacion']].isin(df_cliente[['cliente_id_erp','razon_social','identificacion']].to_dict('list')).all(axis=1)]
+                filtro_cliente_actualizacion =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_cliente_actualizacion,'estado':3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta':filtro_cliente_actualizacion,'estado':0}
+        else:   
             resultado_actualizacion = []
             
         return  {'respuesta':resultado_actualizacion,'estado':3} if len(resultado_actualizacion) > 0 else {'respuesta':resultado_actualizacion,'estado':0}

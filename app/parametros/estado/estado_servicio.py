@@ -13,24 +13,57 @@ class Estado:
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
         self.__estados = estados_usuario_excel['resultado']
         self.__estados_duplicados = estados_usuario_excel['duplicados']
+        
+    
+    def proceso_sacar_estado(self):
+            
+            registro_estados = self.estados_nuevos()['respuesta']
+            actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
+            estado_sin_cambios = self.obtener_no_sufrieron_cambios()['estado']
+            # estado_excepciones = self.obtener_excepciones_datos_unicos()['estado']
+
+            # Crear un conjunto con todos los valores de estado
+            estados = {registro_estados, actualizacion_estados, estado_sin_cambios}
+
+            # Filtrar valores diferentes de 0 y eliminar duplicados
+            estados_filtrados = [estado for estado in estados if estado != 0]
+            
+            return estados_filtrados
     
     def transacciones(self):
-        
-        actualizacion_estados = self.filtro_estado_actualizar()
-        registro_estados = self.estados_nuevos()
-        
-        log_transaccion_registro_gerencia = {
-                "log_transaccion_excel": {
-                   'sin_cambios':self.obtener_no_sufrieron_cambios(),
-                #    'data_bd':self.__obtener_estados_existente,
-                #    'usuario_data':self.__estados,
-                   'registrar':self.insertar_informacion(registro_estados),
-                   'actualizacion':self.actualizar_informacion(actualizacion_estados),
-                   'duplicados':self.__estados_duplicados,
-                }
-        }
-        
-        return log_transaccion_registro_gerencia
+        if self.validacion_existe_informacion():
+            registro_estados = self.estados_nuevos()['respuesta']
+            actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
+            
+            estado_id = self.proceso_sacar_estado()
+
+            
+            log_transaccion_registro_gerencia = {
+                        "log_transaccion_excel": {
+                            'Respuesta':[
+                                {
+                                    'registrar':self.insertar_informacion(registro_estados),
+                                    'actualizacion':self.actualizar_informacion(actualizacion_estados),
+                                    'sin_cambios':self.obtener_no_sufrieron_cambios()['respuesta']
+                                }
+                            ],
+                            'errores':{
+                                'duplicados':self.__estados_duplicados,
+                            }
+                
+                        },
+                        'estado':{
+                            'id':estado_id
+                        }
+                    }
+            
+            return log_transaccion_registro_gerencia
+            
+        return { 'Mensaje':'No hay informacion para realizar el proceso',
+                    'duplicados':self.__estados_duplicados,'estado':3}  
+
+            
+   
     
     def __proceso_de_informacion_estructuracion(self):
         df = pd.read_excel(self.__file.file)
@@ -88,9 +121,9 @@ class Estado:
                 
             resultado = df_estado[
                     ~df_estado.apply(lambda x: 
-                        ((x['estado_id_erp'] in set(df_obtener_estado_existentes['estado_id_erp'])) 
+                        ((x['estado_id_erp'].lower()  in set(df_obtener_estado_existentes['estado_id_erp'].str.lower() )) 
                          or 
-                         (x['descripcion'] in set(df_obtener_estado_existentes['descripcion']))
+                         (x['descripcion'].lower() in set(df_obtener_estado_existentes['descripcion'].str.lower() ))
                          ), axis=1)
                 ]
                                 
@@ -100,7 +133,7 @@ class Estado:
         else:
             estado_registro = []
             
-        return estado_registro
+        return {'respuesta':estado_registro,'estado':1} if len(estado_registro)>0 else {'respuesta':estado_registro,'estado':0}
     
     
     def filtro_estado_actualizar(self):
@@ -137,12 +170,11 @@ class Estado:
                             ), axis=1)
                     ]
             
-            resultado_actualizacion = resultado.to_dict(orient='records')
-      
+            resultado_actualizacion = resultado[['id','descripcion']].to_dict(orient='records')
         else:
             resultado_actualizacion = []
             
-        return resultado_actualizacion
+        return {'respuesta':resultado_actualizacion,'estado':2} if len(resultado_actualizacion)>0 else {'respuesta':resultado_actualizacion,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
         validacion = self.validacion_existe_informacion()
@@ -162,7 +194,7 @@ class Estado:
         else:
             estados_sin_cambios = []
 
-        return estados_sin_cambios
+        return {'respuesta':estados_sin_cambios,'estado':3} if len(estados_sin_cambios)>0 else {'respuesta':estados_sin_cambios,'estado':0}
     
     
     def insertar_informacion(self, novedades_unidad_organizativa):
