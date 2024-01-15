@@ -26,6 +26,7 @@ class Direccion:
         selected_columns = ["ID Dirección (ERP)", "Dirección", "ID Gerencia (ERP)"]
 
         selected_data = df[selected_columns]
+        
         # Cambiar los nombres de las columnas
         selected_data = selected_data.rename(
             columns={
@@ -35,45 +36,88 @@ class Direccion:
             }
         )
         
+        
         selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"].str.lower()
         selected_data["nombre"] = selected_data["nombre"].str.lower()
         
-        # df_filtered = selected_data.dropna()
+        df_filtered = selected_data.dropna()
 
-        duplicados_unidad_erp = selected_data.duplicated(subset='unidad_organizativa_id_erp', keep=False)
-        duplicados_nombre = selected_data.duplicated(subset='nombre', keep=False)
+        duplicados_unidad_erp = df_filtered.duplicated(subset='unidad_organizativa_id_erp', keep=False)
+        duplicados_nombre = df_filtered.duplicated(subset='nombre', keep=False)
    
         # Filtrar DataFrame original
-        resultado = selected_data[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
-        duplicados = selected_data[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
         return {'resultado':resultado,'duplicados':duplicados}
     
+    
+    def proceso_sacar_estado(self):
+            novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
+            
+            lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")['estado']
+            unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()['estado']
+            sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")['estado']
+            excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['estado']
+            gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")['estado']
+
+            # Crear un conjunto con todos los valores de estado
+            estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, gerencia_existente}
+
+            # Filtrar valores diferentes de 0 y eliminar duplicados
+            estados_filtrados = [estado for estado in estados if estado != 0]
+            
+            return estados_filtrados
+    
     def transacciones(self):
         try:
-            novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
-            # informacion a insertar
-            lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")
-            unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()
-            sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")
-            excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")
-            gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")
-
-            log_transaccion_registro = self.insertar_informacion(lista_insert)
-            log_transaccion_actualizar = self.actualizar_informacion(unidad_organizativa_update)
+            if self.__validacion_contenido:
+                novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
+                # informacion a insertar
+                
+                lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")['respuesta']
+                
+                unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()['respuesta']
+                
+                sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")['respuesta']
+                
+                excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['respuesta']
+                
+                gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")['respuesta']
             
-            log_transaccion_registro_unidad_organizativa = {
-                "log_transaccion_excel": {
-                    "unidad_organizativa_registradas": log_transaccion_registro,
-                    "unidad_organizativas_actualizadas": log_transaccion_actualizar,
-                    "unidad_organizativas_sin_cambios": sin_cambios,
-                    "unidad_organizativa_id_no_existe": excepciones_id_usuario,
-                    "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada,
-                    "gerencias_existentes":gerencia_existente
-                }
-            }
 
-            return log_transaccion_registro_unidad_organizativa
+                log_transaccion_registro = self.insertar_informacion(lista_insert)
+                log_transaccion_actualizar = self.actualizar_informacion(unidad_organizativa_update)
+                
+           
+                
+                estado_id = self.proceso_sacar_estado()
+                
+                log_transaccion_registro_gerencia = {
+                        "log_transaccion_excel": {
+                            'Respuesta':[
+                                {
+                                    "gerencia_registradas": log_transaccion_registro,
+                                    "gerencias_actualizadas": log_transaccion_actualizar,
+                                    "gerencias_sin_cambios": sin_cambios,
+                                }
+                            ],
+                            'errores':{
+                                "unidad_organizativa_id_no_existe": excepciones_id_usuario,
+                                "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada,
+                                "gerencias_existentes":gerencia_existente
+                            }
+                
+                        },
+                        'estado':{
+                            'id':estado_id
+                        }
+                    }
+
+                return log_transaccion_registro_gerencia
+            
+            return { 'Mensaje':'No hay informacion para realizar el proceso',
+                    'duplicados':self.__informacion_excel_duplicada,'estado':5}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -134,7 +178,7 @@ class Direccion:
         else:
             id_gerencias_none =[] 
         
-        return id_gerencias_none
+        return {'respuesta':id_gerencias_none,'estado':4} if len(id_gerencias_none) > 0 else {'respuesta':id_gerencias_none,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
         
@@ -157,7 +201,8 @@ class Direccion:
         else:
             result = []
         
-        return result
+        return {'respuesta':result,'estado':3} if len(result) > 0 else {'respuesta':result,'estado':0}
+
     
     def obtener_gerencia(self,unidad_gerencia_id_erp):
         return (
@@ -206,7 +251,7 @@ class Direccion:
                 )
                 
                 if len(filtro_unidad_organizativa) == 0:
-                    return direccion_nuevas
+                    return {'respuesta':direccion_nuevas,'estado':1} if len(direccion_nuevas) > 0 else {'respuesta':direccion_nuevas,'estado':0}
                 
                 df_registro = pd.DataFrame(filtro_unidad_organizativa)
                 registros = df_registro.drop(columns=['id']) 
@@ -215,7 +260,8 @@ class Direccion:
             else:
                 registros_unidad_organizativa = []
             
-            return registros_unidad_organizativa
+            return {'respuesta':registros_unidad_organizativa,'estado':1} if len(registros_unidad_organizativa)>0 else {'respuesta':registros_unidad_organizativa,'estado':0}
+
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
         
@@ -257,17 +303,17 @@ class Direccion:
                     ]
             
             filtrado_actualizacion = direccion_actualizar.to_dict(orient='records')
-            
-            filtro_direccion = self.obtener_no_sufrieron_cambios()
+            filtro_direccion = self.obtener_no_sufrieron_cambios()['respuesta']
             
             if len(filtro_direccion) != 0:
                 df_unidad_organizativa = pd.DataFrame(filtro_direccion)
                 columnas_filtrar = ['unidad_organizativa_id_erp', 'nombre', 'gerencia_id']
                 df_filtrado = direccion_actualizar[~direccion_actualizar[columnas_filtrar].isin(df_unidad_organizativa[columnas_filtrar].to_dict('list')).all(axis=1)]
-                return df_filtrado.to_dict(orient='records')
-        
-        
-        return filtrado_actualizacion
+                filtrado_actualizacion = df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
+            
+        return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
+
     
     def direccion_mapeo_excepciones(self, direccion, excepciones):
         
@@ -301,7 +347,7 @@ class Direccion:
         try:
             if len(novedades_unidad_organizativa) > 0:
                 informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
-                session.bulk_insert_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+                # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
                 return novedades_unidad_organizativa
 
             return "No se han registrado datos"
@@ -313,9 +359,10 @@ class Direccion:
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         try:
+        
             if len(actualizacion_gerencia_unidad_organizativa) > 0:
                 informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-                session.bulk_update_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
+                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, informacion_unidad_gerencia)
                 return actualizacion_gerencia_unidad_organizativa
 
             return "No se han actualizado datos"
@@ -389,4 +436,4 @@ class Direccion:
         else:
             obtener_excepcion = []
             
-        return obtener_excepcion
+        return {'respuesta':obtener_excepcion,'estado':4} if len(obtener_excepcion) > 0 else {'respuesta':obtener_excepcion,'estado':0}

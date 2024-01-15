@@ -3,7 +3,6 @@ from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
 from typing import List
-from app.parametros.gerencia.esquema.archivo_esquema import Archivo
 from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import  UploadFile
@@ -65,7 +64,7 @@ class Gerencia:
     def validacion_informacion_gerencia_nit(self):
         try:
             if not self.__gerencia_excel:
-                return {'log': [], 'gerencia_filtrada_excel': []}
+                return {'log': [], 'gerencia_filtrada_excel': [],'estado':0}
 
             gerencia_log, gerencia_filtrada_excel = [], []
             
@@ -74,7 +73,7 @@ class Gerencia:
                     gerencia_filtrada_excel.append(item)
                 else:
                     gerencia_log.append(item)
-            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel}
+            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado':3}
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
@@ -87,36 +86,73 @@ class Gerencia:
         gerencia_data = [gerencia.to_dict() for gerencia in informacion_gerencia]
         return gerencia_data
 
+        
+    def proceso_sacar_estado(self):
+            novedades_de_gerencia = self.comparacion_gerencia()
+            
+            lista_insert = novedades_de_gerencia.get("insercion_datos")['estado']
+            gerencia_update = novedades_de_gerencia.get("actualizacion_datos")['estado']
+            sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")['estado']
+            excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")['estado']
+            excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")['estado']
+            log_nit_invalido = self.validacion_informacion_gerencia_nit()['estado']
+
+            # Crear un conjunto con todos los valores de estado
+            estados = {lista_insert, gerencia_update, sin_cambios, excepciones_id_usuario, excepciones_gerencia, log_nit_invalido}
+
+            # Filtrar valores diferentes de 0 y eliminar duplicados
+            estados_filtrados = [estado for estado in estados if estado != 0]
+            
+            return estados_filtrados
+    
     def transacciones(self):
         try:
             if  self.__validacion_contenido:
                 novedades_de_gerencia = self.comparacion_gerencia()
                 # informacion a insertar
-                lista_insert = novedades_de_gerencia.get("insercion_datos")
-                gerencia_update = novedades_de_gerencia.get("actualizacion_datos")
-                sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")
-                excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")
-                excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")
+                lista_insert = novedades_de_gerencia.get("insercion_datos")['respuesta']
+                
+                gerencia_update = novedades_de_gerencia.get("actualizacion_datos")['respuesta']
+                
+                sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")['respuesta']
+                
+                excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")['respuesta']
+                
+                excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")['respuesta']
 
                 log_transaccion_registro = self.insertar_inforacion(lista_insert)
                 log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
+                
                 log_nit_invalido = self.validacion_informacion_gerencia_nit()
+                
+                estado_id = self.proceso_sacar_estado()
 
                 log_transaccion_registro_gerencia = {
                     "log_transaccion_excel": {
-                        "gerencia_registradas": log_transaccion_registro,
-                        "gerencias_actualizadas": log_transaccion_actualizar,
-                        "gerencias_sin_cambios": sin_cambios,
+                        'Respuesta':[
+                            {
+                                "gerencia_registradas": log_transaccion_registro,
+                                "gerencias_actualizadas": log_transaccion_actualizar,
+                                "gerencias_sin_cambios": sin_cambios,
+                            }
+                        ],
+                        'errores':{
                         "gerencia_nit_no_existe": excepciones_id_usuario,
                         "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
                         "gerencias_existentes":excepciones_gerencia,
                         "gerencias_duplicadas": self.__informacion_excel_duplicada
+                        }
+            
+                    },
+                    'estado':{
+                        'id':estado_id
                     }
                 }
 
                 return log_transaccion_registro_gerencia
             
-            return {'Mensaje':'No hay informacion para realizar el proceso'}
+            return { 'Mensaje':'No hay informacion para realizar el proceso',
+                    'duplicados':self.__informacion_excel_duplicada,'estado':3}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -166,18 +202,6 @@ class Gerencia:
     #  sacando asi los valores nuevos que no existen ninguno en la base de datos es decir se insertan
     def filtrar_gerencias_nuevas(self, excepciones_gerencia):
         try:
-            # gerencias_nuevas = [
-            #     item
-            #     for item in self.__gerencia
-            #     if (
-            #         item["responsable_id"] != 0
-            #         and (item["unidad_gerencia_id_erp"].lower() or item["nombre"].lower())
-            #         not in {
-            #             (g["unidad_gerencia_id_erp"].lower() or g["nombre"].lower())
-            #             for g in self.__obtener_gerencia_existente
-            #         }
-            #     )
-            # ]
             if self.__validacion_contenido:
                 df_unidad_gerencia = pd.DataFrame(self.__gerencia)
                 df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
@@ -195,7 +219,6 @@ class Gerencia:
                     ~df_unidad_gerencia.apply(lambda x: ((x['unidad_gerencia_id_erp'] in set(df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_gerencia_existentes['nombre']))), axis=1)
                 ]
                 
-                                
                 nuevas_gerencias_a_registrar = resultado.to_dict(orient='records')
                 
                 filtro_unidad_organizativa = self.gerencias_mapeo_excepciones(
@@ -203,13 +226,13 @@ class Gerencia:
                 )
                 
                 if len(filtro_unidad_organizativa) == 0:
-                    return nuevas_gerencias_a_registrar
+                    return {'respuesta':nuevas_gerencias_a_registrar,'estado':1} if len(nuevas_gerencias_a_registrar) > 0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
               
             else:
                 nuevas_gerencias_a_registrar = []
                 
-            return nuevas_gerencias_a_registrar
-        
+            return {'respuesta':nuevas_gerencias_a_registrar,'estado':1} if len(nuevas_gerencias_a_registrar)>0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
+
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
@@ -255,32 +278,26 @@ class Gerencia:
             
             filtrado_actualizacion = gerencia_actualizar.to_dict(orient='records')
             
-            filtro_gerencia = self.obtener_no_sufrieron_cambios()
+            filtro_gerencia = self.obtener_no_sufrieron_cambios()['respuesta']
  
             if len(filtro_gerencia) != 0:
                 df_gerencia = pd.DataFrame(filtro_gerencia)
                 columnas_filtrar = ['unidad_gerencia_id_erp', 'nombre', 'responsable_id']
                 df_filtrado = gerencia_actualizar[~gerencia_actualizar[columnas_filtrar].isin(df_gerencia[columnas_filtrar].to_dict('list')).all(axis=1)]
-                return df_filtrado.to_dict(orient='records')
+                filtrado_actualizacion = df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
+ 
         else:
             filtrado_actualizacion = []
         
-        return filtrado_actualizacion
+        return {'respuesta':filtrado_actualizacion,'estado':1} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
+
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
     #  se lleva un registro de estos
     # esta validacion es para los usuarios que tienen items repetidos
     def obtener_no_sufrieron_cambios(self):
-        # no_sufieron_cambios = [
-        #     {
-        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-        #         "nombre": item["nombre"],
-                
-        #     }
-        #     for item in self.__gerencia
-        #     for g in self.__obtener_gerencia_existente
-        #     if ((item["nombre"].upper() == g["nombre"].upper()) ) or ((item["responsable_id"] == g["responsable_id"]))
-        # ]
+ 
         if self.__validacion_contenido:
             df_unidad_gerencia = pd.DataFrame(self.__gerencia)
             df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
@@ -299,7 +316,8 @@ class Gerencia:
         else:
             gerencias_sin_cambios = []
 
-        return gerencias_sin_cambios
+        return {'respuesta':gerencias_sin_cambios,'estado':3} if len(gerencias_sin_cambios) > 0 else {'respuesta':gerencias_sin_cambios,'estado':0}
+
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
     #  se lleva un registro de estos
@@ -326,7 +344,8 @@ class Gerencia:
         else:
             id_usuario_no_existe = []
             
-        return id_usuario_no_existe
+        return {'respuesta':id_usuario_no_existe,'estado':4} if len(id_usuario_no_existe) > 0 else {'respuesta':id_usuario_no_existe,'estado':0}
+
 
     #  a traves de esta funcion me va a devolver la gerencia compeleta pero con el id_usuario ya que se realiza
     #  una consulta para obtener los id_usuario con la cedula, es decir con el nit del usuario
@@ -368,7 +387,7 @@ class Gerencia:
         try:
             if len(novedades_de_gerencia) > 0:
                 actualizacion_data = self.procesar_datos_minuscula(novedades_de_gerencia)
-                session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                # session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -381,7 +400,7 @@ class Gerencia:
         try:
             if len(actualizacion_gerencia) > 0  :
                 actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
-                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"
@@ -393,15 +412,7 @@ class Gerencia:
     # y me envia la lista de gerencias que se le va realizar la insercion o la actualizacion
     def gerencias_mapeo_excepciones(self, gerencia, excepciones):
         # filtro de excepciones atrapada de datos unicos, el cual obtiene la informacion nueva y la filtra con las exepciones que existen
-        # filtro_gerencia = [
-        #     item
-        #     for item in gerencia
-        #     if {
-        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-        #         "nombre": item["nombre"],
-        #     }
-        #     not in excepciones
-        # ]
+
         df_unidad_gerencia = pd.DataFrame(gerencia)
         df_excepciones = pd.DataFrame(excepciones)
         
@@ -462,4 +473,4 @@ class Gerencia:
         else:
             obtener_excepcion = []
             
-        return obtener_excepcion
+        return {'respuesta':obtener_excepcion,'estado':4} if len(obtener_excepcion) > 0 else {'respuesta':obtener_excepcion,'estado':0}
