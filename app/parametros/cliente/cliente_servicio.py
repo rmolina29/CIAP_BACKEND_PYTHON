@@ -272,13 +272,13 @@ class Cliente:
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         if len(novedades_unidad_organizativa) > 0:
-            # session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
+            session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
             return novedades_unidad_organizativa
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            # session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
+            session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
             return actualizacion_gerencia_unidad_organizativa
         return "No se han actualizado datos"
     

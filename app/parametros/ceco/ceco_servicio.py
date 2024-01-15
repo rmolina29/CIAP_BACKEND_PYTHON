@@ -188,7 +188,8 @@ class Ceco:
                         ), axis=1)
                 ]
             
-            resultado_actualizacion = resultado.to_dict(orient='records')
+            actualizacion_ceco = resultado[['nombre','descripcion']]
+            resultado_actualizacion = actualizacion_ceco.to_dict(orient='records')
 
             ceco_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             
@@ -246,14 +247,14 @@ class Ceco:
     
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
-            # session.bulk_insert_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            session.bulk_insert_mappings(ProyectoCeco, novedades_unidad_organizativa)
             return novedades_unidad_organizativa
 
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            # session.bulk_update_mappings(ProyectoCeco, informacion_unidad_gerencia)
+            session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
             return actualizacion_gerencia_unidad_organizativa
 
         return "No se han actualizado datos"

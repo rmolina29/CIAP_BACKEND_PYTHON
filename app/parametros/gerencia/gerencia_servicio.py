@@ -207,14 +207,16 @@ class Gerencia:
                 df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
                 
                 df_unidad_gerencia['responsable_id'] = df_unidad_gerencia['responsable_id'].astype(int)
-                df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre'].str.lower()
+                df_unidad_gerencia['nombre'] = df_unidad_gerencia['nombre']
                 
-                df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre'].str.lower()
-                df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'] = df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'].str.lower()
+                df_obtener_unidad_gerencia_existentes['nombre'] = df_obtener_unidad_gerencia_existentes['nombre']
+                df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'] = df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp']
                 
                 resultado = df_unidad_gerencia[
                     (df_unidad_gerencia['responsable_id'] != 0) &
-                    ~df_unidad_gerencia.apply(lambda x: ((x['unidad_gerencia_id_erp'] in set(df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'])) or (x['nombre'] in set(df_obtener_unidad_gerencia_existentes['nombre']))), axis=1)
+                    ~df_unidad_gerencia.apply(lambda x: ((x['unidad_gerencia_id_erp'].lower() in set(df_obtener_unidad_gerencia_existentes['unidad_gerencia_id_erp'].str.lower())) 
+                                                         or 
+                                                         (x['nombre'].lower() in set(df_obtener_unidad_gerencia_existentes['nombre'].str.lower()))), axis=1)
                 ]
                 
                 nuevas_gerencias_a_registrar = resultado.to_dict(orient='records')
@@ -274,7 +276,8 @@ class Gerencia:
                         ), axis=1)
                     ]
             
-            filtrado_actualizacion = gerencia_actualizar.to_dict(orient='records')
+            actualizacion_gerncia = gerencia_actualizar[['nombre','responsable_id']]
+            filtrado_actualizacion = actualizacion_gerncia.to_dict(orient='records')
             
             filtro_gerencia = self.obtener_no_sufrieron_cambios()['respuesta']
  
