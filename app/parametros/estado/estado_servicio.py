@@ -48,8 +48,8 @@ class Estado:
             }
         )
         
-        selected_data["estado_id_erp"] = selected_data["estado_id_erp"].str.lower()
-        selected_data["descripcion"] = selected_data["descripcion"].str.lower()
+        selected_data["estado_id_erp"] = selected_data["estado_id_erp"]
+        selected_data["descripcion"] = selected_data["descripcion"]
         
         
         estado_duplicado = selected_data.duplicated(subset='estado_id_erp', keep=False)
@@ -80,11 +80,11 @@ class Estado:
             df_estado = pd.DataFrame(self.__estados)
             df_obtener_estado_existentes = pd.DataFrame(self.__obtener_estados_existente)
             
-            df_estado["estado_id_erp"] = df_estado["estado_id_erp"].str.lower()
-            df_estado["descripcion"] = df_estado["descripcion"].str.lower()
+            df_estado["estado_id_erp"] = df_estado["estado_id_erp"]
+            df_estado["descripcion"] = df_estado["descripcion"]
 
-            df_obtener_estado_existentes["estado_id_erp"] = df_obtener_estado_existentes["estado_id_erp"].str.lower()
-            df_obtener_estado_existentes["descripcion"] = df_obtener_estado_existentes["descripcion"].str.lower()
+            df_obtener_estado_existentes["estado_id_erp"] = df_obtener_estado_existentes["estado_id_erp"]
+            df_obtener_estado_existentes["descripcion"] = df_obtener_estado_existentes["descripcion"]
                 
             resultado = df_estado[
                     ~df_estado.apply(lambda x: 
@@ -111,11 +111,11 @@ class Estado:
             df_estado = pd.DataFrame(self.__estados)
             df_obtener_estados_existentes = pd.DataFrame(self.__obtener_estados_existente)
             
-            df_estado["estado_id_erp"] = df_estado["estado_id_erp"].str.lower()
-            df_obtener_estados_existentes["estado_id_erp"] = df_obtener_estados_existentes["estado_id_erp"].str.lower()
+            df_estado["estado_id_erp"] = df_estado["estado_id_erp"]
+            df_obtener_estados_existentes["estado_id_erp"] = df_obtener_estados_existentes["estado_id_erp"]
             
-            df_estado["descripcion"] = df_estado["descripcion"].str.lower()
-            df_obtener_estados_existentes["descripcion"] = df_obtener_estados_existentes["descripcion"].str.lower()
+            df_estado["descripcion"] = df_estado["descripcion"]
+            df_obtener_estados_existentes["descripcion"] = df_obtener_estados_existentes["descripcion"]
             
             resultado = pd.merge(
                 df_estado[['estado_id_erp','descripcion']],
@@ -150,11 +150,11 @@ class Estado:
             df_estados = pd.DataFrame(self.__estados)
             df_obtener_estados_existentes = pd.DataFrame(self.__obtener_estados_existente)
             
-            df_estados["estado_id_erp"] = df_estados["estado_id_erp"].str.lower()
-            df_obtener_estados_existentes["estado_id_erp"] = df_obtener_estados_existentes["estado_id_erp"].str.lower()
+            df_estados["estado_id_erp"] = df_estados["estado_id_erp"]
+            df_obtener_estados_existentes["estado_id_erp"] = df_obtener_estados_existentes["estado_id_erp"]
             
-            df_estados["descripcion"] = df_estados["descripcion"].str.lower()
-            df_obtener_estados_existentes["descripcion"] = df_obtener_estados_existentes["descripcion"].str.lower()
+            df_estados["descripcion"] = df_estados["descripcion"]
+            df_obtener_estados_existentes["descripcion"] = df_obtener_estados_existentes["descripcion"]
             
             resultado = pd.merge(df_estados, df_obtener_estados_existentes, how='inner', on=['estado_id_erp', 'descripcion'])
             
@@ -167,29 +167,28 @@ class Estado:
     
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
-            informacion_unidad_gerencia = self.procesar_datos_minuscula(novedades_unidad_organizativa)
             # session.bulk_insert_mappings(ProyectoEstado, informacion_unidad_gerencia)
             # session.flush()
             # nuevos = session.new
             
             # print("Entidades nuevas:", nuevos)
             
-            return informacion_unidad_gerencia
+            return novedades_unidad_organizativa
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
+            # informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
             # session.bulk_update_mappings(ProyectoEstado, informacion_unidad_gerencia)
             # session.flush()
             # modificaciones = session.dirty
             # print("Entidades modificadas:", modificaciones)
             
-            return informacion_unidad_gerencia
+            return actualizacion_gerencia_unidad_organizativa
         return "No se han actualizado datos"
     
-    def procesar_datos_minuscula(self,datos):
-        df = pd.DataFrame(datos)
-        df[['estado_id_erp', 'descripcion']] = df[['estado_id_erp', 'descripcion']].apply(lambda x: x.str.lower())
-        return df.to_dict(orient='records')
+    # def procesar_datos_minuscula(self,datos):
+    #     df = pd.DataFrame(datos)
+    #     df[['estado_id_erp', 'descripcion']] = df[['estado_id_erp', 'descripcion']].apply(lambda x: x.str.lower())
+    #     return df.to_dict(orient='records')
     

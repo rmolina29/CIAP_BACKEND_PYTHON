@@ -290,7 +290,7 @@ class Gerencia:
         else:
             filtrado_actualizacion = []
         
-        return {'respuesta':filtrado_actualizacion,'estado':1} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
+        return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
 
 
     # esto son los que no han tenido nada de cambios pero lo han querido enviar a actualizar
@@ -323,14 +323,6 @@ class Gerencia:
     #  se lleva un registro de estos
     # esta validacion es para los usuarios que tienen items repetidos
     def excepciones_id_usuario(self):
-        # id_usuario_no_existe = [
-        #     {
-        #         "unidad_gerencia_id_erp": item["unidad_gerencia_id_erp"],
-        #         "nombre": item["nombre"],
-        #     }
-        #     for item in self.__gerencia
-        #     if ((item["responsable_id"]) == 0)
-        # ]
         
         if self.__validacion_contenido:
             df = pd.DataFrame(self.__gerencia)
@@ -387,7 +379,7 @@ class Gerencia:
         try:
             if len(novedades_de_gerencia) > 0:
                 actualizacion_data = self.procesar_datos_minuscula(novedades_de_gerencia)
-                # session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                session.bulk_insert_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -400,7 +392,7 @@ class Gerencia:
         try:
             if len(actualizacion_gerencia) > 0  :
                 actualizacion_data = self.procesar_datos_minuscula(actualizacion_gerencia)
-                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_data)
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"
