@@ -295,20 +295,21 @@ class Direccion:
 
             direccion_actualizar = resultado_final[
             ~resultado_final.apply(lambda x: (
-                (x['nombre'] in set(df_obtener_unidad_organizativa_existentes['nombre'])) and
-                (x['unidad_organizativa_id_erp'] != df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['nombre'] == x['nombre'], 'unidad_organizativa_id_erp'].values[0])
+                (x['nombre'].lower()  in set(df_obtener_unidad_organizativa_existentes['nombre'].str.lower())) and
+                (x['unidad_organizativa_id_erp'] != df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['nombre'].str.lower() == x['nombre'].lower(), 'unidad_organizativa_id_erp'].values[0])
             ), axis=1)
         ]
                     
             if direccion_actualizar.empty:
                 return {'respuesta':[],'estado':0}
             
-            filtrado_actualizacion = direccion_actualizar.to_dict(orient='records')
+            direccion_culmnas = direccion_actualizar[['id','nombre','gerencia_id']]
+            filtrado_actualizacion = direccion_culmnas.to_dict(orient='records')
             filtro_direccion = self.obtener_no_sufrieron_cambios()['respuesta']
             
             if len(filtro_direccion) != 0:
                 df_unidad_organizativa = pd.DataFrame(filtro_direccion)
-                columnas_filtrar = ['unidad_organizativa_id_erp', 'nombre', 'gerencia_id']
+                columnas_filtrar = ['nombre', 'gerencia_id']
                 df_filtrado = direccion_actualizar[~direccion_actualizar[columnas_filtrar].isin(df_unidad_organizativa[columnas_filtrar].to_dict('list')).all(axis=1)]
                 filtrado_actualizacion = df_filtrado.to_dict(orient='records')
                 return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
@@ -347,7 +348,7 @@ class Direccion:
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         try:
             if len(novedades_unidad_organizativa) > 0:
-                # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
+                session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
                 return novedades_unidad_organizativa
 
             return "No se han registrado datos"
@@ -361,7 +362,7 @@ class Direccion:
         try:
         
             if len(actualizacion_gerencia_unidad_organizativa) > 0:
-                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
                 return actualizacion_gerencia_unidad_organizativa
 
             return "No se han actualizado datos"
@@ -429,7 +430,6 @@ class Direccion:
                 ]
             
             actualizar_ = self.obtener_unidad_organizativa_actualizacion()['respuesta']
-            print(actualizar_)
             
             if len(actualizar_) > 0:
                 df_cliente = pd.DataFrame(actualizar_)

@@ -23,7 +23,7 @@ class Cliente:
             # Imprimir las columnas reales del DataFrame
             df.columns = df.columns.str.strip()
             
-            selected_columns = ["ID Cliente (ERP)", "Nombre", "NIT"]
+            selected_columns = ["ID Cliente (ERP)", "Cliente", "NIT"]
 
             df_excel = df[selected_columns]
             
@@ -34,10 +34,11 @@ class Cliente:
             df_excel = df_excel.rename(
                     columns={
                     "ID Cliente (ERP)": "cliente_id_erp", 
-                        "Nombre": "razon_social", 
+                        "Cliente": "razon_social", 
                         "NIT": "identificacion"
                     }
                 )
+            
             df_excel["cliente_id_erp"] = df_excel["cliente_id_erp"]
             df_excel["razon_social"] = df_excel["razon_social"]
                 
@@ -55,7 +56,7 @@ class Cliente:
                 lista_gerencias = []
             else:
                 lista_gerencias = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
-                
+            
             return {'resultado':resultado,'duplicados':lista_gerencias}
           
     def proceso_sacar_estado(self):
@@ -84,6 +85,7 @@ class Cliente:
             obtener_duplicados = self.__proceso_de_informacion_estructuracion()
             registro_clientes = self.filtro_clientes_nuevos()['respuesta']
             actualizar_clientes = self.filtro_cliente_actualizar()['respuesta']
+            
                     
             estado_id = self.proceso_sacar_estado()
             
@@ -185,8 +187,8 @@ class Cliente:
             
             cliente_actualizar = resultado_final[
                           ~resultado_final.apply(lambda x: (
-                            (x['razon_social'] in set(df_obtener_clientes_existentes['razon_social'])) and
-                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'] == x['razon_social'], 'cliente_id_erp'].values[0]) 
+                            (x['razon_social'].lower()  in set(df_obtener_clientes_existentes['razon_social'].str.lower() )) and
+                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'].str.lower() == x['razon_social'].lower(), 'cliente_id_erp'].values[0]) 
                             or
                             (x['identificacion'] in set(df_obtener_clientes_existentes['identificacion'])) and
                             (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['identificacion'] == x['identificacion'], 'cliente_id_erp'].values[0])
@@ -224,12 +226,9 @@ class Cliente:
             df_clientes["razon_social"] = df_clientes["razon_social"]
             df_obtener_clientes_existentes["razon_social"] = df_obtener_clientes_existentes["razon_social"]
             
-            # resultado = pd.merge(df_clientes, df_obtener_clientes_existentes, how='inner', on=['razon_social', 'identificacion'])
-            
-            df_filtrado = df_clientes[df_clientes.isin(df_obtener_clientes_existentes.to_dict('list')).all(axis=1)]
-            
-            
-            clientes_sin_ningun_cambio = df_filtrado.to_dict(orient='records')
+            resultado = pd.merge(df_clientes, df_obtener_clientes_existentes, how='inner', on=['cliente_id_erp','razon_social', 'identificacion'])
+            # df_filtrado = df_clientes[df_clientes.isin(df_obtener_clientes_existentes.to_dict('list')).all(axis=1)]
+            clientes_sin_ningun_cambio = resultado.to_dict(orient='records')
         else:
             clientes_sin_ningun_cambio = []
 
@@ -239,8 +238,8 @@ class Cliente:
         validacion = self.validacion_existe_informacion()
         
         if validacion:
-            df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
             
+            df_clientes,df_obtener_clientes_existentes = self.obtener_data_serializada()
             
             excepciones = df_clientes[
                 df_clientes.apply(
@@ -258,15 +257,17 @@ class Cliente:
                 ) |
                         df_clientes['cliente_id_erp'].str.lower().isin(df_obtener_clientes_existentes['cliente_id_erp'].str.lower().values)
             ]
+            
+                     
+            cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
+            filtro_actualizacion = self.filtro_cliente_actualizar()['respuesta']
+            
+            filtrar_las_actualizaciones = self.filtro_de_excpeciones(cliente_filtro,filtro_actualizacion,excepciones)['respuesta']
+            if len(filtrar_las_actualizaciones)>0:
+                return  {'respuesta': filtrar_las_actualizaciones, 'estado': 3}
 
             resultado_actualizacion = excepciones.to_dict(orient='records')
-            cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
-            
-            if len(cliente_filtro) != 0:
-                df_cliente = pd.DataFrame(cliente_filtro)
-                df_filtrado = excepciones[~excepciones[['cliente_id_erp','razon_social','identificacion']].isin(df_cliente[['cliente_id_erp','razon_social','identificacion']].to_dict('list')).all(axis=1)]
-                filtro_cliente_actualizacion =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_cliente_actualizacion,'estado':3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta':filtro_cliente_actualizacion,'estado':0}
+
         else:   
             resultado_actualizacion = []
         
@@ -274,13 +275,13 @@ class Cliente:
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         if len(novedades_unidad_organizativa) > 0:
-            session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
+            # session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
             return novedades_unidad_organizativa
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
+            # session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
             return actualizacion_gerencia_unidad_organizativa
         return "No se han actualizado datos"
     
@@ -301,3 +302,33 @@ class Cliente:
             return df_clientes,df_obtener_clientes_existentes
 
 
+    def filtro_de_excpeciones(self,cliente_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
+
+        if len(filtro_actualizacion) > 0 and len(cliente_filtro) > 0:
+            df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
+            df_cliente = pd.DataFrame(cliente_filtro)
+            
+            df_filtrado = excepciones[
+                ~excepciones[['razon_social']].isin(df_ceco_filtro[['razon_social']].to_dict('list')).all(axis=1) &
+                ~excepciones[['cliente_id_erp', 'razon_social', 'identificacion']].isin(df_cliente[['cliente_id_erp', 'razon_social', 'identificacion']].to_dict('list')).all(axis=1)
+            ]
+            
+            filtro_combinado = df_filtrado.to_dict(orient='records')
+            return {'respuesta': filtro_combinado, 'estado': 3} if len(filtro_combinado) > 0 else {'respuesta': filtro_combinado, 'estado': 0}
+        elif len(filtro_actualizacion) > 0:
+            df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
+            df_filtrado = excepciones[~excepciones[['razon_social']].isin(df_ceco_filtro[['razon_social']].to_dict('list')).all(axis=1)]
+            
+            filtro_ceco = df_filtrado.to_dict(orient='records')
+            
+            return {'respuesta': filtro_ceco, 'estado': 3} if len(filtro_ceco) > 0 else {'respuesta': filtro_ceco, 'estado': 0}
+        elif len(cliente_filtro) > 0:
+            df_cliente = pd.DataFrame(cliente_filtro)
+            df_filtrado = excepciones[~excepciones[['cliente_id_erp', 'razon_social', 'identificacion']].isin(df_cliente[['cliente_id_erp', 'razon_social', 'identificacion']].to_dict('list')).all(axis=1)]
+            
+            filtro_cliente_actualizacion = df_filtrado.to_dict(orient='records')
+            
+
+            return {'respuesta': filtro_cliente_actualizacion, 'estado': 3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta': filtro_cliente_actualizacion, 'estado': 0}
+        else:
+            return {'respuesta': [], 'estado': 0}

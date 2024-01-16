@@ -17,13 +17,14 @@ class Estado:
     
     def proceso_sacar_estado(self):
             
-            registro_estados = self.estados_nuevos()['respuesta']
-            actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
+            registro_estados = self.estados_nuevos()['estado']
+            actualizacion_estados = self.filtro_estado_actualizar()['estado']
             estado_sin_cambios = self.obtener_no_sufrieron_cambios()['estado']
+            estado_exepciones = self.obtener_excepciones_datos_unicos_estado()['estado']
             # estado_excepciones = self.obtener_excepciones_datos_unicos()['estado']
 
             # Crear un conjunto con todos los valores de estado
-            estados = {registro_estados, actualizacion_estados, estado_sin_cambios}
+            estados = {registro_estados, actualizacion_estados, estado_sin_cambios,estado_exepciones}
 
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
@@ -34,9 +35,7 @@ class Estado:
         if self.validacion_existe_informacion():
             registro_estados = self.estados_nuevos()['respuesta']
             actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
-            
             estado_id = self.proceso_sacar_estado()
-
             
             log_transaccion_registro_gerencia = {
                         "log_transaccion_excel": {
@@ -49,6 +48,7 @@ class Estado:
                             ],
                             'errores':{
                                 'duplicados':self.__estados_duplicados,
+                                'excpeciones':self.obtener_excepciones_datos_unicos_estado()['respuesta']
                             }
                 
                         },
@@ -103,7 +103,42 @@ class Estado:
     def validacion_existe_informacion(self)->bool:
         return len(self.__estados) > 0 and len(self.__obtener_estados_existente)>0
     
-    
+    def obtener_excepciones_datos_unicos_estado(self):
+        
+        validacion = self.validacion_existe_informacion()
+        
+        if validacion:
+            df_estado = pd.DataFrame(self.__estados)
+            df_obtener_estado_existentes = pd.DataFrame(self.__obtener_estados_existente)
+
+            
+            resultado = df_estado[
+                        df_estado.apply(lambda x: 
+                            (
+                                (x['descripcion'].lower() in df_obtener_estado_existentes['descripcion'].str.lower().values) and
+                                (x['estado_id_erp'].lower() != df_obtener_estado_existentes.loc[df_obtener_estado_existentes['descripcion'].str.lower() == x['descripcion'].lower(), 'estado_id_erp'].str.lower().values[0])
+                            ),
+                            axis=1
+                        ) |
+                        df_estado['estado_id_erp'].str.lower().isin(df_obtener_estado_existentes['estado_id_erp'].str.lower().values)
+                    ]
+            
+            if resultado.empty:
+                return {'respuesta':[],'estado':0}
+            
+            
+            obtener_excepciones_estado =  resultado.to_dict(orient='records')
+            
+            filtro_actualizacion = self.filtro_estado_actualizar()['respuesta']
+            estado_filtro_no_sufrieron_cambios = self.obtener_no_sufrieron_cambios()['respuesta']
+            
+            filtro_de_excepciones_y_actualizaciones = self.filtro_de_excepciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)['respuesta']
+            if len(filtro_de_excepciones_y_actualizaciones) > 0:
+                return  {'respuesta': filtro_de_excepciones_y_actualizaciones,'estado': 3}
+            
+        else:
+            obtener_excepciones_estado = []
+        return  {'respuesta':obtener_excepciones_estado,'estado':3} if len(obtener_excepciones_estado) > 0 else {'respuesta':obtener_excepciones_estado,'estado':0}
     
     def estados_nuevos(self):
         
@@ -161,20 +196,24 @@ class Estado:
             resultado_filtrado = resultado[
                 ((resultado['descripcion_x'] != resultado['descripcion_y']))
             ]
+
             # Seleccionar las columnas deseadas
-            resultado_final = resultado_filtrado[['id', 'estado_id_erp', 'descripcion_x']].rename(columns={'descripcion_x':'descripcion'})
-            
+            resultado_final = resultado_filtrado[['id','estado_id_erp','descripcion_x']].rename(columns={'descripcion_x':'descripcion'})
+
             resultado = resultado_final[
-                        ~resultado_final.apply(lambda x: 
-                            ((x['descripcion'] in set(df_obtener_estados_existentes['descripcion'])) 
-                            ), axis=1)
-                    ]
+                ~resultado_final.apply(lambda x: 
+                    ((x['descripcion'].lower() in set(df_obtener_estados_existentes['descripcion'].str.lower())) 
+                    ), axis=1)
+            ]
+
+            # if resultado.empty:
+            #     return {'respuesta': resultado.to_dict(orient='records'), 'estado': 0}
             
-            resultado_actualizacion = resultado[['id','descripcion']].to_dict(orient='records')
+            resultado_actualizacion = resultado.to_dict(orient='records')
         else:
             resultado_actualizacion = []
-            
-        return {'respuesta':resultado_actualizacion,'estado':2} if len(resultado_actualizacion)>0 else {'respuesta':resultado_actualizacion,'estado':0}
+
+        return {'respuesta':resultado_actualizacion,'estado':2} if len(resultado_actualizacion) > 0 else {'respuesta':resultado_actualizacion,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
         validacion = self.validacion_existe_informacion()
@@ -218,9 +257,32 @@ class Estado:
             
             return actualizacion_gerencia_unidad_organizativa
         return "No se han actualizado datos"
+
     
-    # def procesar_datos_minuscula(self,datos):
-    #     df = pd.DataFrame(datos)
-    #     df[['estado_id_erp', 'descripcion']] = df[['estado_id_erp', 'descripcion']].apply(lambda x: x.str.lower())
-    #     return df.to_dict(orient='records')
-    
+    def filtro_de_excepciones(self,estado_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
+
+            if len(filtro_actualizacion) > 0 and len(estado_filtro) > 0:
+                    df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
+                    df_estado = pd.DataFrame(estado_filtro)
+                    
+                    df_filtrado = excepciones[
+                        ~excepciones[['descripcion','estado_id_erp']].isin(df_ceco_filtro[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1) &
+                        ~excepciones[['descripcion','estado_id_erp']].isin(df_estado[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)
+                    ]
+            
+                    filtro_combinado = df_filtrado.to_dict(orient='records')
+                    return {'respuesta': filtro_combinado, 'estado': 3} if len(filtro_combinado) > 0 else {'respuesta': filtro_combinado, 'estado': 0}
+            
+            elif len(filtro_actualizacion) > 0:
+                df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
+             
+                df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_ceco_filtro[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
+                filtro_ceco =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_ceco,'estado':3} if len(filtro_ceco) > 0 else {'respuesta':filtro_ceco,'estado':0}
+            
+            
+            elif len(estado_filtro) > 0:
+                df_estado = pd.DataFrame(estado_filtro)
+                df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_estado[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
+                filtro_estado_actualizacion =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_estado_actualizacion,'estado':3} if len(filtro_estado_actualizacion) > 0 else {'respuesta':filtro_estado_actualizacion,'estado':0}

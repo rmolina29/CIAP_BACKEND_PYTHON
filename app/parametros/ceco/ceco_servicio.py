@@ -78,15 +78,14 @@ class Ceco:
         
         df.columns = df.columns.str.strip()
         # Imprimir las columnas reales del DataFrame
-        selected_columns = ["ID proyecto (ERP)", "Nombre", "Descripcion"]
+        selected_columns = ["ID proyecto", "Nombre del proyecto"]
 
         selected_data = df[selected_columns]
           # Cambiar los Nombres de las columnas
         selected_data = selected_data.rename(
             columns={
-               "ID proyecto (ERP)": "ceco_id_erp", 
-                "Nombre": "nombre", 
-                "Descripcion":'descripcion'
+               "ID proyecto": "ceco_id_erp", 
+                "Nombre del proyecto": "nombre"
             }
         )
         
@@ -144,12 +143,17 @@ class Ceco:
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
             
             df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
+            
             df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
             
             df_ceco["nombre"] = df_ceco["nombre"]
+            
             df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
             
-            resultado = pd.merge(df_ceco, df_obtener_ceco_existentes, how='inner', on=['ceco_id_erp', 'nombre','descripcion'])
+            resultado = pd.merge(df_ceco, df_obtener_ceco_existentes, how='inner', on = ['ceco_id_erp', 'nombre'])
+            # resultado = df_ceco[df_ceco.isin(df_obtener_ceco_existentes.to_dict('list')).all(axis=1)]
+            if resultado.empty:
+                return {'respuesta':[],'estado':0}
             
             cecos_sin_cambios = resultado.to_dict(orient='records')
         else:
@@ -171,35 +175,34 @@ class Ceco:
             df_obtener_ceco_existentes["nombre"] = df_obtener_ceco_existentes["nombre"]
             
             resultado = pd.merge(
-                df_ceco[['ceco_id_erp','nombre','descripcion']],
-                df_obtener_ceco_existentes[['id','ceco_id_erp','nombre','descripcion']],
+                df_ceco[['ceco_id_erp','nombre']],
+                df_obtener_ceco_existentes[['id','ceco_id_erp','nombre']],
                 left_on=['ceco_id_erp'],
                 right_on=['ceco_id_erp'],
                 how='inner',
             )
         
             # Seleccionar las columnas deseadas
-            resultado_final = resultado[['id', 'ceco_id_erp', 'nombre_x','descripcion_x']].rename(columns={'nombre_x':'nombre','descripcion_x':'descripcion'})
+            resultado_final = resultado[['id', 'ceco_id_erp', 'nombre_x']].rename(columns={'nombre_x':'nombre'})
             
             resultado = resultado_final[
                          ~resultado_final.apply(lambda x: 
-                        ((x['nombre'] in set(df_obtener_ceco_existentes['nombre'])) and
-                        (x['ceco_id_erp'] != df_obtener_ceco_existentes.loc[df_obtener_ceco_existentes['nombre'] == x['nombre'], 'ceco_id_erp'].values[0])
+                        ((x['nombre'].lower() in set(df_obtener_ceco_existentes['nombre'].str.lower())) and
+                        (x['ceco_id_erp'] != df_obtener_ceco_existentes.loc[df_obtener_ceco_existentes['nombre'].str.lower() == x['nombre'].lower(), 'ceco_id_erp'].values[0])
                         ), axis=1)
                 ]
-            
+
             if resultado.empty:
                 return {'respuesta':[],'estado':0}
             
-            actualizacion_ceco = resultado[['nombre','descripcion']]
-            resultado_actualizacion = actualizacion_ceco.to_dict(orient='records')
+            resultado_actualizacion = resultado.to_dict(orient='records')
 
             ceco_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             
             if len(ceco_filtro) != 0:
                 df_ceco = pd.DataFrame(ceco_filtro)
-                df_filtrado = resultado[~resultado[['nombre','descripcion']].isin(df_ceco[['nombre','descripcion']].to_dict('list')).all(axis=1)]
-                filtro_ceco_actualizacion = df_filtrado.to_dict(orient='records')
+                df_filtrado = resultado[~resultado[['nombre']].isin(df_ceco[['nombre']].to_dict('list')).all(axis=1)]
+                filtro_ceco_actualizacion = df_filtrado.to_dict(orient = 'records')
                 return {'respuesta':filtro_ceco_actualizacion,'estado':2} if len(filtro_ceco_actualizacion) > 0 else {'respuesta':filtro_ceco_actualizacion,'estado':0}
             
         else:
@@ -234,15 +237,27 @@ class Ceco:
                         ) |
                         df_ceco['ceco_id_erp'].str.lower().isin(df_obtener_ceco_existentes['ceco_id_erp'].str.lower().values)
                     ]
+            
+            if resultado.empty:
+                return {'respuesta':[],'estado':0}
+            
+            actualizar_ = self.actualizar_ceco_filtro()['respuesta']
+            
+            if len(actualizar_) > 0:
+                df_ceco_filtro = pd.DataFrame(actualizar_)
+                df_filtrado = resultado[~resultado[['nombre','ceco_id_erp']].isin(df_ceco_filtro[['nombre','ceco_id_erp']].to_dict('list')).all(axis=1)]
+                filtro_ceco =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_ceco,'estado':3} if len(filtro_ceco) > 0 else {'respuesta':filtro_ceco,'estado':0}
+            
                         
             obtener_excepciones = resultado.to_dict(orient='records')
             ceco_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             
             if len(ceco_filtro) != 0:
-                df_cliente = pd.DataFrame(ceco_filtro)
-                df_filtrado = resultado[~resultado[['cliente_id_erp','razon_social','identificacion']].isin(df_cliente[['cliente_id_erp','razon_social','identificacion']].to_dict('list')).all(axis=1)]
-                filtro_cliente_actualizacion =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_cliente_actualizacion,'estado':3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta':filtro_cliente_actualizacion,'estado':0}
+                df_ceco = pd.DataFrame(ceco_filtro)
+                df_filtrado = resultado[~resultado[['nombre','ceco_id_erp']].isin(df_ceco[['nombre','ceco_id_erp']].to_dict('list')).all(axis=1)]
+                filtro_ceco_actualizacion =  df_filtrado.to_dict(orient='records')
+                return {'respuesta':filtro_ceco_actualizacion,'estado':3} if len(filtro_ceco_actualizacion) > 0 else {'respuesta':filtro_ceco_actualizacion,'estado':0}
       
         else:
             obtener_excepciones = []
