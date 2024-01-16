@@ -294,16 +294,12 @@ class Direccion:
             
 
             direccion_actualizar = resultado_final[
-                          ~resultado_final.apply(lambda x: (
-                            (x['nombre'] in set(df_obtener_unidad_organizativa_existentes['nombre'])) and
-                            (x['unidad_organizativa_id_erp'] != df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['nombre'] == x['nombre'], 'unidad_organizativa_id_erp'].values[0]) 
-                            or
-                            # filtro para la misma unidad de gerencia pero con diferente id de responsable
-                            (x['gerencia_id'] in set(df_obtener_unidad_organizativa_existentes['gerencia_id'])) and
-                            (x['unidad_organizativa_id_erp'] == df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['gerencia_id'] != x['gerencia_id'], 'unidad_organizativa_id_erp'].values[0])
-                        ), axis=1)
-                    ]
-            
+            ~resultado_final.apply(lambda x: (
+                (x['nombre'] in set(df_obtener_unidad_organizativa_existentes['nombre'])) and
+                (x['unidad_organizativa_id_erp'] != df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['nombre'] == x['nombre'], 'unidad_organizativa_id_erp'].values[0])
+            ), axis=1)
+        ]
+                    
             if direccion_actualizar.empty:
                 return {'respuesta':[],'estado':0}
             
@@ -425,7 +421,7 @@ class Direccion:
             
             direcciones_existentes = df_unidad_organizativa[
                     df_unidad_organizativa.apply(lambda x: 
-                        ((x['nombre'].lower()  in set(df_obtener_unidad_organizativa_existentes['nombre'].str.lower())) and
+                        ((x['nombre'].lower() in set(df_obtener_unidad_organizativa_existentes['nombre'].str.lower())) and
                         (x['unidad_organizativa_id_erp'].lower()  != df_obtener_unidad_organizativa_existentes.loc[df_obtener_unidad_organizativa_existentes['nombre'].str.lower()  == x['nombre'].lower(), 'unidad_organizativa_id_erp'].str.lower().values[0])
                         ), axis=1)
                     |
@@ -433,7 +429,7 @@ class Direccion:
                 ]
             
             actualizar_ = self.obtener_unidad_organizativa_actualizacion()['respuesta']
-       
+            print(actualizar_)
             
             if len(actualizar_) > 0:
                 df_cliente = pd.DataFrame(actualizar_)

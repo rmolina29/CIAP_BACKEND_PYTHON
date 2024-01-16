@@ -270,15 +270,11 @@ class Gerencia:
 
             
             gerencia_actualizar = resultado_final[
-                ~resultado_final.apply(lambda x: (
-                    (x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
-                    (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0]) 
-                    or
-                    # filtro para la misma unidad de gerencia pero con diferente id de responsable
-                    (x['responsable_id'] in set(df_obtener_unidad_de_gerencia['responsable_id'])) and
-                    (x['unidad_gerencia_id_erp'] == df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['responsable_id'] != x['responsable_id'], 'unidad_gerencia_id_erp'].values[0])
-                ), axis=1)
-            ]
+            ~resultado_final.apply(lambda x: (
+                (x['nombre'] in set(df_obtener_unidad_de_gerencia['nombre'])) and
+                (x['unidad_gerencia_id_erp'] != df_obtener_unidad_de_gerencia.loc[df_obtener_unidad_de_gerencia['nombre'] == x['nombre'], 'unidad_gerencia_id_erp'].values[0])
+            ), axis=1)
+        ]
             
             if gerencia_actualizar.empty:
                 return {'respuesta':[],'estado':0}
