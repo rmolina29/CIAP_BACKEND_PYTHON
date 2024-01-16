@@ -289,7 +289,6 @@ class Gerencia:
                 (x['responsable_id'] != 0)
             ), axis=1)
         ]
-                    
             if gerencia_actualizar.empty:
                 return {'respuesta':[],'estado':0}
             
@@ -485,15 +484,17 @@ class Gerencia:
                     df_gerencia['unidad_gerencia_id_erp'].str.lower().isin(df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'].str.lower().values)
                 ]
             
-            
-            actualizar_ = self.obtener_gerencias_actualizacion()['respuesta']
             gerencia_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
+            actualizar_ = self.obtener_gerencias_actualizacion()['respuesta']
             
-            filtrar_las_actualizaciones = self.filtro_de_excepciones(gerencia_filtro,actualizar_,gerencias_existentes)['respuesta']
             
-            if len(filtrar_las_actualizaciones)>0:
-                return  {'respuesta': filtrar_las_actualizaciones, 'estado': 3}
-      
+            filtrar_las_actualizaciones = self.filtro_de_excepciones(gerencia_filtro,actualizar_,gerencias_existentes)
+            
+            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado'] == 3:
+         
+                return  {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado': 3}
+            
+            obtener_excepcion = gerencias_existentes.to_dict(orient='records')
         else:
             obtener_excepcion = []
         
@@ -501,7 +502,8 @@ class Gerencia:
     
     
     def filtro_de_excepciones(self,gerencia_filtro,filtro_actualizacion,gerencias_excepciones:pd.DataFrame):
-
+           
+            
             if len(filtro_actualizacion) > 0 and len(gerencia_filtro) > 0:
                     df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
                     df_gerencia = pd.DataFrame(gerencia_filtro)
@@ -512,18 +514,20 @@ class Gerencia:
                     ]
             
                     filtro_combinado = df_filtrado.to_dict(orient='records')
-                    return {'respuesta': filtro_combinado, 'estado': 3} if len(filtro_combinado) > 0 else {'respuesta': filtro_combinado, 'estado': 0}
+                    return {'respuesta': filtro_combinado, 'estado': 3} 
             
+           
             elif len(filtro_actualizacion) > 0:
                 df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
-             
                 df_filtrado = gerencias_excepciones[~gerencias_excepciones[['nombre','responsable_id']].isin(df_gerencia_filtro_actualizacion[['nombre','responsable_id']].to_dict('list')).all(axis=1)]
-                filtro_ceco =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_ceco,'estado':3} if len(filtro_ceco) > 0 else {'respuesta':filtro_ceco,'estado':0}
+                filtro_ceco =  df_filtrado.to_dict(orient ='records')
+                return {'respuesta':filtro_ceco,'estado':3} 
             
             
             elif len(gerencia_filtro) > 0:
                 df_estado = pd.DataFrame(gerencia_filtro)
                 df_filtrado = gerencias_excepciones[~gerencias_excepciones[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_estado[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1)]
                 filtro_estado_actualizacion =  df_filtrado.to_dict(orient = 'records')
-                return {'respuesta':filtro_estado_actualizacion,'estado':3} if len(filtro_estado_actualizacion) > 0 else {'respuesta':filtro_estado_actualizacion,'estado':0}
+                return {'respuesta':filtro_estado_actualizacion,'estado':3} 
+            else:
+                return {'respuesta': [], 'estado': 0}

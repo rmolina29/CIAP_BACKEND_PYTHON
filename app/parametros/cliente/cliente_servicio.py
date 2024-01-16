@@ -262,8 +262,8 @@ class Cliente:
             cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             filtro_actualizacion = self.filtro_cliente_actualizar()['respuesta']
             
-            filtrar_las_actualizaciones = self.filtro_de_excpeciones(cliente_filtro,filtro_actualizacion,excepciones)['respuesta']
-            if len(filtrar_las_actualizaciones)>0:
+            filtrar_las_actualizaciones = self.filtro_de_excpeciones(cliente_filtro,filtro_actualizacion,excepciones)
+            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado']:
                 return  {'respuesta': filtrar_las_actualizaciones, 'estado': 3}
 
             resultado_actualizacion = excepciones.to_dict(orient='records')
@@ -314,14 +314,14 @@ class Cliente:
             ]
             
             filtro_combinado = df_filtrado.to_dict(orient='records')
-            return {'respuesta': filtro_combinado, 'estado': 3} if len(filtro_combinado) > 0 else {'respuesta': filtro_combinado, 'estado': 0}
+            return {'respuesta': filtro_combinado, 'estado': 3} 
         elif len(filtro_actualizacion) > 0:
             df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
             df_filtrado = excepciones[~excepciones[['razon_social']].isin(df_ceco_filtro[['razon_social']].to_dict('list')).all(axis=1)]
             
             filtro_ceco = df_filtrado.to_dict(orient='records')
             
-            return {'respuesta': filtro_ceco, 'estado': 3} if len(filtro_ceco) > 0 else {'respuesta': filtro_ceco, 'estado': 0}
+            return {'respuesta': filtro_ceco, 'estado': 3} 
         elif len(cliente_filtro) > 0:
             df_cliente = pd.DataFrame(cliente_filtro)
             df_filtrado = excepciones[~excepciones[['cliente_id_erp', 'razon_social', 'identificacion']].isin(df_cliente[['cliente_id_erp', 'razon_social', 'identificacion']].to_dict('list')).all(axis=1)]
@@ -329,6 +329,6 @@ class Cliente:
             filtro_cliente_actualizacion = df_filtrado.to_dict(orient='records')
             
 
-            return {'respuesta': filtro_cliente_actualizacion, 'estado': 3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta': filtro_cliente_actualizacion, 'estado': 0}
+            return {'respuesta': filtro_cliente_actualizacion, 'estado': 3} 
         else:
             return {'respuesta': [], 'estado': 0}
