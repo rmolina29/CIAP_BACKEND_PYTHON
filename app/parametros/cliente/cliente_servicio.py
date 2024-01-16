@@ -193,6 +193,9 @@ class Cliente:
                         ), axis=1)
                     ]
             
+            if cliente_actualizar.empty:
+                return {'respuesta':[],'estado':0}
+            
             clientes_ = cliente_actualizar[['id','razon_social','identificacion']]
             resultado_actualizacion = clientes_.to_dict(orient='records')
             cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
@@ -244,11 +247,11 @@ class Cliente:
                     lambda x: (
                         (
                             (x['razon_social'].lower() in df_obtener_clientes_existentes['razon_social'].str.lower().values) and
-                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'].str.lower() == x['razon_social'].lower(), 'cliente_id_erp'].values[0])
+                            (x['cliente_id_erp'].lower() != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['razon_social'].str.lower() == x['razon_social'].lower(), 'cliente_id_erp'].str.lower().values[0])
                         ) or
                         (
                             (x['identificacion'] in df_obtener_clientes_existentes['identificacion']) and
-                            (x['cliente_id_erp'] != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['identificacion'] == x['identificacion'], 'cliente_id_erp'].values[0])
+                            (x['cliente_id_erp'].lower() != df_obtener_clientes_existentes.loc[df_obtener_clientes_existentes['identificacion'] == x['identificacion'], 'cliente_id_erp'].str.lower().values[0])
                         )
                     ),
                     axis=1
@@ -257,7 +260,6 @@ class Cliente:
             ]
 
             resultado_actualizacion = excepciones.to_dict(orient='records')
-            
             cliente_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             
             if len(cliente_filtro) != 0:
@@ -267,7 +269,7 @@ class Cliente:
                 return {'respuesta':filtro_cliente_actualizacion,'estado':3} if len(filtro_cliente_actualizacion) > 0 else {'respuesta':filtro_cliente_actualizacion,'estado':0}
         else:   
             resultado_actualizacion = []
-            
+        
         return  {'respuesta':resultado_actualizacion,'estado':3} if len(resultado_actualizacion) > 0 else {'respuesta':resultado_actualizacion,'estado':0}
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):

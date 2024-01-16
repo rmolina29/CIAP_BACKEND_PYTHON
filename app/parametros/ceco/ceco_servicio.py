@@ -188,6 +188,9 @@ class Ceco:
                         ), axis=1)
                 ]
             
+            if resultado.empty:
+                return {'respuesta':[],'estado':0}
+            
             actualizacion_ceco = resultado[['nombre','descripcion']]
             resultado_actualizacion = actualizacion_ceco.to_dict(orient='records')
 
@@ -207,6 +210,7 @@ class Ceco:
     # obtengo las excepciones del usuario me esta enviando informacion que debe ser unica y la filtro lo que me viene en la bd contra lo que me envia el usuario
     # y le devuelvo la informacion
     def obtener_excepciones_datos_unicos(self):
+        
         validacion = self.validacion_existe_informacion()
         
         if validacion:
