@@ -274,10 +274,10 @@ class Direccion:
 
             df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
             
-            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre']
+            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.strip()
             df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre']
             
-            df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp']
+            df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp'].str.strip()
             df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'] = df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp']
             
             resultado = pd.merge(
@@ -418,8 +418,6 @@ class Direccion:
             df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp']
             df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'] = df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp']
             
-
-            
             direcciones_existentes = df_unidad_organizativa[
                     df_unidad_organizativa.apply(lambda x: 
                         ((x['nombre'].lower() in set(df_obtener_unidad_organizativa_existentes['nombre'].str.lower())) and
@@ -429,24 +427,14 @@ class Direccion:
                     df_unidad_organizativa['unidad_organizativa_id_erp'].str.lower().isin(df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'].str.lower().values)
                 ]
             
-            # actualizar_ = self.obtener_unidad_organizativa_actualizacion()['respuesta']
+            direccion_filtro_no_sufrieron_cambios = self.obtener_no_sufrieron_cambios()['respuesta']
             
-            # if len(actualizar_) > 0:
-            #     df_cliente = pd.DataFrame(actualizar_)
-            #     df_filtrado = direcciones_existentes[~direcciones_existentes[['nombre','gerencia_id']].isin(df_cliente[['nombre','gerencia_id']].to_dict('list')).all(axis=1)]
-            #     filtro_direccion =  df_filtrado.to_dict(orient='records')
-            #     return {'respuesta':filtro_direccion,'estado':3} if len(filtro_direccion) > 0 else {'respuesta':filtro_direccion,'estado':0}
+            actualizar_ = self.obtener_unidad_organizativa_actualizacion()['respuesta']
+      
+            filtrar_las_actualizaciones = self.filtro_de_excepciones(direccion_filtro_no_sufrieron_cambios,actualizar_,direcciones_existentes)
             
-            # direccion_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
-            # obtener_excepcion = direcciones_existentes.to_dict(orient='records')
- 
-            
-            # if len(direccion_filtro) != 0:
-            #     df_cliente = pd.DataFrame(direccion_filtro)
-            #     df_filtrado = direcciones_existentes[~direcciones_existentes[['unidad_organizativa_id_erp','nombre','gerencia_id']].isin(df_cliente[['unidad_organizativa_id_erp','nombre','gerencia_id']].to_dict('list')).all(axis=1)]
-            #     filtro_direccion =  df_filtrado.to_dict(orient='records')
-            #     return {'respuesta':filtro_direccion,'estado':3} if len(filtro_direccion) > 0 else {'respuesta':filtro_direccion,'estado':0}
-            
+            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado'] == 3:
+                return  {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado': 3}
             
             obtener_excepcion = direcciones_existentes.to_dict(orient='records')
         else:
@@ -456,14 +444,15 @@ class Direccion:
     
     
     def filtro_de_excepciones(self,direccion_filtro,filtro_actualizacion,direccion_excepcion:pd.DataFrame):
-           
+
             if len(filtro_actualizacion) > 0 and len(direccion_filtro) > 0:
+                
                     df_direccion_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
                     df_gerencia = pd.DataFrame(direccion_filtro)
                     
                     df_filtrado = direccion_excepcion[
-                        ~direccion_excepcion[['nombre','responsable_id']].isin(df_gerencia_filtro_actualizacion[['nombre','responsable_id']].to_dict('list')).all(axis=1) &
-                        ~direccion_excepcion[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_gerencia[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1)
+                        ~direccion_excepcion[['nombre','gerencia_id']].isin(df_direccion_filtro_actualizacion[['nombre','gerencia_id']].to_dict('list')).all(axis=1) &
+                        ~direccion_excepcion[['unidad_organizativa_id_erp','nombre','gerencia_id']].isin(df_gerencia[['unidad_organizativa_id_erp','nombre','gerencia_id']].to_dict('list')).all(axis=1)
                     ]
             
                     filtro_combinado = df_filtrado.to_dict(orient='records')
@@ -471,16 +460,17 @@ class Direccion:
             
            
             elif len(filtro_actualizacion) > 0:
-                df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
-                df_filtrado = direccion_excepcion[~direccion_excepcion[['nombre','responsable_id']].isin(df_gerencia_filtro_actualizacion[['nombre','responsable_id']].to_dict('list')).all(axis=1)]
-                filtro_ceco =  df_filtrado.to_dict(orient ='records')
-                return {'respuesta':filtro_ceco,'estado':3} 
+                df_direccion_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
+                df_filtrado = direccion_excepcion[~direccion_excepcion[['nombre','gerencia_id']].isin(df_direccion_filtro_actualizacion[['nombre','gerencia_id']].to_dict('list')).all(axis=1)]
+                filtro_direccion =  df_filtrado.to_dict(orient ='records')
+                return {'respuesta':filtro_direccion,'estado':3} 
             
             
-            elif len(df_direccion_filtro_actualizacion) > 0:
-                df_estado = pd.DataFrame(df_direccion_filtro_actualizacion)
-                df_filtrado = direccion_excepcion[~direccion_excepcion[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_estado[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1)]
-                filtro_estado_actualizacion =  df_filtrado.to_dict(orient = 'records')
-                return {'respuesta':filtro_estado_actualizacion,'estado':3} 
+            elif len(direccion_filtro) > 0:
+                df_direccion = pd.DataFrame(direccion_filtro)
+                df_filtrado = direccion_excepcion[~direccion_excepcion[['unidad_organizativa_id_erp','nombre','gerencia_id']].isin(df_direccion[['unidad_organizativa_id_erp','nombre','gerencia_id']].to_dict('list')).all(axis=1)]
+                filtro_direccion =  df_filtrado.to_dict(orient = 'records')
+                
+                return {'respuesta':filtro_direccion,'estado':3} 
             else:
                 return {'respuesta': [], 'estado': 0}

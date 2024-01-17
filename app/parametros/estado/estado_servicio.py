@@ -134,7 +134,7 @@ class Estado:
             
             filtro_de_excepciones_y_actualizaciones = self.filtro_de_excepciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)
             if len(filtro_de_excepciones_y_actualizaciones['respuesta']) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
-                return  {'respuesta': filtro_de_excepciones_y_actualizaciones,'estado': 3}
+                return  {'respuesta': filtro_de_excepciones_y_actualizaciones['respuesta'],'estado': filtro_de_excepciones_y_actualizaciones['estado']}
             
         else:
             obtener_excepciones_estado = []
@@ -261,7 +261,7 @@ class Estado:
     
     def filtro_de_excepciones(self,estado_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
 
-            if len(filtro_actualizacion) > 0 and len(estado_filtro) > 0:
+        if len(filtro_actualizacion) > 0 and len(estado_filtro) > 0:
                     df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
                     df_estado = pd.DataFrame(estado_filtro)
                     
@@ -273,7 +273,7 @@ class Estado:
                     filtro_combinado = df_filtrado.to_dict(orient='records')
                     return {'respuesta': filtro_combinado, 'estado': 3} 
             
-            elif len(filtro_actualizacion) > 0:
+        elif len(filtro_actualizacion) > 0:
                 df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
              
                 df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_ceco_filtro[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
@@ -281,8 +281,10 @@ class Estado:
                 return {'respuesta':filtro_ceco,'estado':3} 
             
             
-            elif len(estado_filtro) > 0:
+        elif len(estado_filtro) > 0:
                 df_estado = pd.DataFrame(estado_filtro)
                 df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_estado[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
                 filtro_estado_actualizacion =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_estado_actualizacion,'estado':3} 
+                return {'respuesta':filtro_estado_actualizacion,'estado':3}
+        else:
+                return {'respuesta':filtro_estado_actualizacion,'estado':0}
