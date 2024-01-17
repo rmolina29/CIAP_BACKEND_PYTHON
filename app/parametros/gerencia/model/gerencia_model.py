@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Text, TIMESTAMP, func
 from sqlalchemy.dialects.mysql import TINYINT
-
+from sqlalchemy.orm import relationship
 # from sqlalchemy.ext.declarative import declarative_base
 from app.database.db import Base
 
@@ -17,15 +17,16 @@ class ProyectoUnidadGerencia(Base):
     responsable_id = Column(Integer, nullable=False)
     estado = Column(
         TINYINT(unsigned=True), default=1
-    ) 
+    )
+    unidades_organizativas = relationship("ProyectoUnidadOrganizativa", back_populates="gerencia")
 
-    def __init__(self, id, unidad_gerencia_id_erp,nombre,responsable_id):
+    def __init__(self, id, unidad_gerencia_id_erp,nombre,responsable_id,estado):
         self.id = id
         self.unidad_gerencia_id_erp = unidad_gerencia_id_erp
         self.nombre = nombre
         self.responsable_id = responsable_id
+        self.esatdo = estado
         
-
     
     def to_dict(self):
         return {

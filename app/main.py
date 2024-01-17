@@ -6,6 +6,7 @@ from app.parametros.direccion import direccion_router as router_d
 from app.parametros.ceco import ceco_router as router_c
 from app.parametros.cliente import cliente_router as router_cli
 from app.parametros.estado import estado_router as router_e
+from app.proyectos import proyectos_router as router_p
 # from app.utils import load_app
 
 app = FastAPI(debug=True)
@@ -34,7 +35,10 @@ app.include_router(
 app.include_router(
     router_e.estado, prefix="/fts/parametros/estado"
 )
+app.include_router(
+    router_p.proyectos, prefix="/fts/proyectos"
+)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port = 8000)

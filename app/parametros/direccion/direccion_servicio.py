@@ -3,7 +3,7 @@ from app.parametros.direccion.esquema.proyecto_unidad_organizativa import Archiv
 from app.parametros.direccion.model.proyecto_unidad_organizativa import ProyectoUnidadOrganizativa
 from app.database.db import session
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
-from sqlalchemy import and_
+from sqlalchemy import and_,func
 from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
 from fastapi import  UploadFile
@@ -19,6 +19,7 @@ class Direccion:
         self.__validacion_contenido = len(self.__unidad_organizativa) > 0 and len(self.__obtener_unidad_organizativa_existentes) > 0
         
     
+    # class
     def __proceso_de_informacion_estructuracion(self):
         df = pd.read_excel(self.__file.file)
         # Imprimir las columnas reales del DataFrame
@@ -51,7 +52,7 @@ class Direccion:
         
         return {'resultado':resultado,'duplicados':duplicados}
     
-    
+    # class
     def proceso_sacar_estado(self):
             novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
             
@@ -69,6 +70,8 @@ class Direccion:
             
             return estados_filtrados
     
+    
+    # class
     def transacciones(self):
         try:
             if self.__validacion_contenido:
@@ -127,6 +130,7 @@ class Direccion:
             session.close()
       
     
+    # class
     def obtener_direccion(self):
             informacion_direccion = session.query(ProyectoUnidadOrganizativa).all()
             gerencia_data = [gerencia.to_dict() for gerencia in informacion_direccion]
@@ -210,7 +214,7 @@ class Direccion:
             session.query(ProyectoUnidadGerencia)
             .filter(
                 and_(
-                    ProyectoUnidadGerencia.unidad_gerencia_id_erp == unidad_gerencia_id_erp,
+                    func.binary(ProyectoUnidadGerencia.unidad_gerencia_id_erp) == func.binary(unidad_gerencia_id_erp),
                     ProyectoUnidadGerencia.estado == 1,
                 )
             )
@@ -348,7 +352,7 @@ class Direccion:
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         try:
             if len(novedades_unidad_organizativa) > 0:
-                session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
+                # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
                 return novedades_unidad_organizativa
 
             return "No se han registrado datos"
@@ -362,7 +366,7 @@ class Direccion:
         try:
         
             if len(actualizacion_gerencia_unidad_organizativa) > 0:
-                session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
                 return actualizacion_gerencia_unidad_organizativa
 
             return "No se han actualizado datos"

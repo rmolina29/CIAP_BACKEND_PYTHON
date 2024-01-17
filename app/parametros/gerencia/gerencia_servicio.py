@@ -16,11 +16,12 @@ class Gerencia:
         self.__gerencia_excel = resultado_estructuracion['resultado']
         # todas las gerencias existentes en la base de datos
         self.__obtener_gerencia_existente = self.obtener()
+        self.__obtener_gerencia_existente_estado = self.obtener_por_estado_gerencia()
         # gerencia que me envia el usuario a traves del excel
         self.__gerencia = self.gerencia_usuario_procesada()
         self.__validacion_contenido = len(self.__gerencia) > 0 and len(self.__obtener_gerencia_existente) > 0
     
-    
+    # class
     def __proceso_de_informacion_estructuracion(self):
         
         df = pd.read_excel(self.__file.file)
@@ -82,14 +83,20 @@ class Gerencia:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
 
     
-    
+    # class
     def obtener(self):
         informacion_gerencia = session.query(ProyectoUnidadGerencia).all()
         # Convertir lista de objetos a lista de diccionarios
         gerencia_data = [gerencia.to_dict() for gerencia in informacion_gerencia]
         return gerencia_data
+    
+    def obtener_por_estado_gerencia(self, estado=1):
+        informacion_gerencia = session.query(ProyectoUnidadGerencia).filter_by(estado=estado).all()
+        # Convertir lista de objetos a lista de diccionarios
+        gerencia_data = [gerencia.to_dict() for gerencia in informacion_gerencia]
+        return gerencia_data
 
-        
+    # class
     def proceso_sacar_estado(self):
             novedades_de_gerencia = self.comparacion_gerencia()
             
@@ -119,6 +126,7 @@ class Gerencia:
             
             return estados_filtrados
     
+    # class
     def transacciones(self):
         try:
             if  self.__validacion_contenido:
@@ -214,6 +222,8 @@ class Gerencia:
 
     #  esta funcion sirve para validar lo que se envia en excel contra lo que recibe en la base de datos
     #  sacando asi los valores nuevos que no existen ninguno en la base de datos es decir se insertan
+    
+    # class
     def filtrar_gerencias_nuevas(self, excepciones_gerencia):
         try:
             if self.__validacion_contenido:
@@ -253,11 +263,13 @@ class Gerencia:
 
 
     # Aqui se obtiene los que se pueden actualizar en la gerencia es decir los que han sufrido cambios
+    
+    # class
     def obtener_gerencias_actualizacion(self):
         
         if self.__validacion_contenido:
             df_gerencia = pd.DataFrame(self.__gerencia)
-            df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
+            df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente_estado)
             
             df_gerencia['responsable_id'] = df_gerencia['responsable_id'].astype(int)
             
