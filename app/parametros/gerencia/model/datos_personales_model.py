@@ -1,11 +1,10 @@
-from sqlalchemy import Column, Integer
+from sqlalchemy import Column, Integer,ForeignKey
 from sqlalchemy.dialects.mysql import TINYINT
-
+from sqlalchemy.orm import relationship
 # from sqlalchemy.ext.declarative import declarative_base
 from app.database.db import Base
 
 # Base = declarative_base()
-
 
 class UsuarioDatosPersonales(Base):
     
@@ -18,7 +17,7 @@ class UsuarioDatosPersonales(Base):
         TINYINT(unsigned=True), default=1
     ) 
     
-
+    usuario_auth = relationship("UsuarioAuth",ForeignKey('usuario_auth.id'), back_populates="usuario_datos_personales")
     
     def __init__(self, id, id_usuario, identificacion,estado):
         self.id = id
