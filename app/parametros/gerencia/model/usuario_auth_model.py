@@ -15,7 +15,7 @@ class UsuarioAuth(Base):
         TINYINT(unsigned=True), default=1
     ) 
     
-    usuario_datos_personales = relationship("UsuarioDatosPersonales",ForeignKey('usuario_auth.id'), back_populates="usuario_datos_personales")
+    # usuario_datos_personales = relationship("UsuarioDatosPersonales",ForeignKey('usuario_auth.id'), back_populates="usuario_datos_personales")
 
     def __init__(self, id,estado):
         self.id = id

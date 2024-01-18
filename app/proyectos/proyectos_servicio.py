@@ -12,19 +12,55 @@ from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import  UploadFile
 import pandas as pd
-
+from sqlalchemy.orm import aliased
+from datetime import datetime, timedelta
 
 class Proyectos:
     
     def __init__(self,file:UploadFile) -> None:
         self.__file = file
+        # con esta data se hara la comparacion para los datos que estan en registros
         self.proyectos_existentes = self.obtener()
+        # y esta data se realizara la comparacion contra los que tiene para actualizar
+        self.proyectos_existentes_por_estado = self.obtener_por_estado_gerencia()
         resultado_estructuracion = self.__proceso_de_proyectos_estructuracion()
         self.__proyectos_excel_duplicada = resultado_estructuracion['duplicados']
         self.__proyectos_excel = resultado_estructuracion['resultado']
+        # data procesada contiene los datos en 0 de las id que no existen en otras tablas
+        self.__proyectos = self.gerencia_usuario_procesada()
         
+        
+    
+    def comparacion_existe_datos(self,obtener_proyectos_existentes)->bool:
+        len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
+    
+      
     def transacciones(self):
-        return self.proyectos_existentes
+ 
+        log_transaccion_registro_proyecto = {
+                    "log_transaccion_excel": {
+                        'Respuesta':[
+                            {
+                                "proyecto_registradas": self.__proyectos,
+                                "proyectos_actualizadas": [],
+                                "proyectos_sin_cambios": [],
+                            }
+                        ],
+                        'errores':{
+                            "proyecto_responsable_no_existe": [],
+                            "proyecto_cliente_no_existe":[],
+                            "proyectos_unidad_administrativas":[],
+                            "proyecto_filtro_nit_invalido":self.validacion_informacion_identificacion()['nit_invalido'],
+                            # "proyectos_existentes":excepciones_proyecto,
+                            "proyectos_duplicadas": self.__proyectos_excel_duplicada
+                        }
+                    },
+                    'estado':{
+                        'id':0
+                    }
+                }
+        
+        return log_transaccion_registro_proyecto
     
     def obtener(self):
         datos_proyectos = session.query(ModeloProyectos).all()
@@ -98,8 +134,8 @@ class Proyectos:
         df_excel["nombre"] = df_excel["nombre"]
         
         
-        df_excel["fecha_inicio"] = df_excel["fecha_inicio"].dt.strftime('%Y-%m-%d')
-        df_excel["fecha_final"] = df_excel["fecha_final"].dt.strftime('%Y-%m-%d')
+        df_excel["fecha_inicio"] = df_excel["fecha_inicio"]
+        df_excel["fecha_final"] = df_excel["fecha_final"]
         
         df_filtered = df_excel.dropna()
 
@@ -115,7 +151,12 @@ class Proyectos:
         if duplicated.isnull().any(axis=1).any():
             lista_gerencias = []
         else:
-            lista_gerencias = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
+            lista_gerencias = [
+                {
+                    'ceco_id': item['ceco_id'],
+                }
+                for item in duplicados
+            ]
         
         return {'resultado':resultado,'duplicados':lista_gerencias}
     
@@ -123,7 +164,7 @@ class Proyectos:
     def validacion_informacion_identificacion(self):
         try:
             if not self.__proyectos_excel:
-                return {'nit_invalido': [], 'proyecto_filtrado_excel': [],'estado':0}
+                return {'nit_invalido': [], 'proyecto_filtro_datos': [],'estado':0}
 
             proyecto_identificacion_incorrecta, proyecto_filtro_datos = [], []
             
@@ -131,35 +172,208 @@ class Proyectos:
                 if isinstance(item.get('identificacion'), (int, float)):
                     proyecto_filtro_datos.append(item)
                 else:
-                    proyecto_identificacion_incorrecta.append(item)
+                    proyecto_identificacion_incorrecta.append({
+                        'identificacion':item['identificacion'],
+                        'id_proyecto':item['ceco_id']
+                        })
+                    
             return {'nit_invalido': proyecto_identificacion_incorrecta, 'proyecto_filtro_datos': proyecto_filtro_datos,'estado':0}
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
     
+    # def gerencia_usuario_procesada(self):
+    #     try:
+    #         proyectos_excel = self.validacion_informacion_identificacion()
+    #         resultados = []
+    #         for proyecto in proyectos_excel['proyecto_filtro_datos']:
+                
+    #             identificacion = proyecto['identificacion']
+    #             unidad_gerencia_id = proyecto['unidad_gerencia_id']
+    #             unidad_organizativa_id = proyecto['unidad_organizativa_id']
+    #             estado_id = proyecto['estado_id']
+    #             unidad_cliente_id = proyecto['cliente_id']
+    #             fecha_inicio = proyecto['fecha_inicio']
+    #             fecha_final = proyecto['fecha_final']
+    #             # Verificar si el valor es un número y no es NaN
+    #             usuario = self.encontrar_id_usuario(int(identificacion))
+    #             ids_unidad_gerencia_y_organizativa = self.ids_unidad_organizativas(unidad_gerencia_id,unidad_organizativa_id)
+    #             unidad_estado_id = self.obtener_estado_proyecto_estado(estado_id)
+    #             id_cliente = self.obtener_estado_proyecto_cliente(unidad_cliente_id)
+    #             calcular_estructuracion_fechas = self.calcular_estructuracion_fechas(fecha_inicio,fecha_final)
+           
+                
+    #             resultados.append({
+    #                 "nombre": proyecto["nombre"],
+    #                 "responsable_id": usuario.to_dict().get("id_usuario") if usuario else 0,
+    #                 "unidad_organizativa_id_erp":ids_unidad_gerencia_y_organizativa["unidad_organizativa_id_erp"] if ids_unidad_gerencia_y_organizativa else 0,
+    #                 "unidad_gerencia_id_erp":ids_unidad_gerencia_y_organizativa['unidad_gerencia_id_erp'] if ids_unidad_gerencia_y_organizativa else 0,
+    #                 "cliente_id":id_cliente.to_dict().get("id") if id_cliente else 0,
+    #                 "estado_id":unidad_estado_id.to_dict().get("id")  if unidad_estado_id else 0,
+                    
+    #                 })
+            
+    #         return resultados
+
+    #     except Exception as e:
+    #         print(e)
+    #         session.rollback()
+    #         raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
+    
     def gerencia_usuario_procesada(self):
         try:
             proyectos_excel = self.validacion_informacion_identificacion()
             resultados = []
-            for proyecto in proyectos_excel['proyecto_filtrado_excel']:
-                identificacion = proyecto['identificacion']
-                # Verificar si el valor es un número y no es NaN
-                if isinstance(identificacion, (int, float)) and not math.isnan(identificacion):
-                    usuario = self.encontrar_id_usuario(int(identificacion))
 
-                    resultados.append({
-                        "unidad_gerencia_id_erp": proyecto["unidad_gerencia_id_erp"],
-                        "nombre": proyecto["nombre"],
-                        "responsable_id": usuario.to_dict().get("id_usuario") if usuario else 0,
-                    })
-                    
+            for proyecto in proyectos_excel['proyecto_filtro_datos']:
+                resultados.append(self.procesar_proyecto(proyecto))
+
             return resultados
 
         except Exception as e:
+            print(e)
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
+    
+    
+    # metodos para obtener los valores de las validaciones
+    
+    def obtener_usuario(self,proyecto):
+        identificacion = proyecto['identificacion']
+        usuario = self.encontrar_id_usuario(int(identificacion))
+        # Verificar si el valor es un número y no es NaN
+        return usuario.to_dict().get("id_usuario") if usuario else 0
+
+    def obtener_ids_unidad_gerencia_organizativa(self,proyecto):
+        unidad_gerencia_id = proyecto['unidad_gerencia_id']
+        unidad_organizativa_id = proyecto['unidad_organizativa_id']
+        unidades_organizativas = self.ids_unidad_organizativas(unidad_gerencia_id, unidad_organizativa_id)
         
+        return {
+            'unidad_organizativa_id_erp': unidades_organizativas['unidad_organizativa_id_erp'] if unidades_organizativas else 0,
+            'unidad_gerencia_id_erp': unidades_organizativas['unidad_gerencia_id_erp'] if unidades_organizativas else 0
+            }
+
+    # def obtener_id_cliente(self,proyecto):
+    #     unidad_cliente_id = proyecto['cliente_id']
+    #     id_cliente = self.obtener_estado_proyecto_cliente(unidad_cliente_id)
+    #     return id_cliente.to_dict().get("id") if id_cliente else 0
+    
+    # def obtener_ceco_proyecto(self,proyecto):
+    #     ceco_id = proyecto['ceco_id']
+    #     id = self.obtener_ceco_proyecto_estado(ceco_id)
+    #     return id.to_dict().get("id") if id else 0
+
+    # def obtener_id_estado_proyecto(self,proyecto):
+    #     estado_id = proyecto['estado_id']
+    #     unidad_estado_id = self.obtener_estado_proyecto_estado(estado_id)
+    #     return unidad_estado_id.to_dict().get("id") if unidad_estado_id else 0
+    
+    def obtener_id_entidad(self, proyecto, entidad):
+        id_entidad = proyecto[f'{entidad}_id']
+        print(id_entidad)
+        entidad_obj = getattr(self,f'obtener_estado_proyecto_{entidad}')(id_entidad)
+        return entidad_obj.to_dict().get("id") if entidad_obj else 0
+
+    def obtener_estructuracion_fechas(self,proyecto):
+        fecha_inicio = proyecto['fecha_inicio']
+        fecha_final = proyecto['fecha_final']
+        return self.calcular_estructuracion_fechas(fecha_inicio, fecha_final)
+
+    def obtener_valores_proyectos(self,proyecto):
+        valor_inicial = proyecto['valor_inicial']
+        valor_final = proyecto['valor_final']
+        return self.validar_valores(valor_inicial,valor_final)
+
+    def procesar_proyecto(self,proyecto):
         
+        unidades_administrativas = self.obtener_ids_unidad_gerencia_organizativa(proyecto)
+        obtener_fechas = self.obtener_estructuracion_fechas(proyecto)
+        monto = self.obtener_valores_proyectos(proyecto)
+        
+        return {
+            "ceco_id":self.obtener_id_entidad(proyecto,'ceco'),
+            "nombre": proyecto["nombre"],
+            "objeto":proyecto["objeto"],
+            "contrato":proyecto["contrato"],
+            "responsable_id": self.obtener_usuario(proyecto),
+            "unidad_organizativa_id_erp": unidades_administrativas['unidad_organizativa_id_erp'],
+            "unidad_gerencia_id_erp": unidades_administrativas['unidad_gerencia_id_erp'],
+            "cliente_id": self.obtener_id_entidad(proyecto,'cliente'),
+            "estado_id": self.obtener_id_entidad(proyecto,'estado'),
+            "fecha_inicio":obtener_fechas['fecha_inicio'] if obtener_fechas else 0,
+            "fecha_final":obtener_fechas['fecha_fin'] if obtener_fechas else 0,
+            "duracion":obtener_fechas['duracion'] if obtener_fechas else 0,
+            "valor_inicial":monto['valor_inicial'] if monto else 0,
+            "valor_final":monto['valor_final'] if monto else 0
+        }
+    
+    # metodos para validaciones de otros campos
+    def calcular_estructuracion_fechas(self,fecha_inicio, fecha_fin):
+        try:
+            # Verificar si las fechas ya son objetos datetime
+            if isinstance(fecha_inicio, datetime) and isinstance(fecha_fin, datetime):
+                # Verificar la condición de que fecha_inicio debe ser menor o igual a fecha_fin
+                if fecha_inicio > fecha_fin:
+                    return None
+
+                # Calcular la duración en meses
+                duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+
+                # Retornar el objeto con las fechas y la duración
+                return {
+                    'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+                    'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+                    'duracion': duracion_meses
+                }
+            else:
+                # Convertir las fechas a objetos datetime
+                fecha_inicio = datetime.strptime(str(fecha_inicio), '%Y-%m-%d')
+                fecha_fin = datetime.strptime(str(fecha_fin), '%Y-%m-%d')
+
+                # Verificar la condición de que fecha_inicio debe ser menor o igual a fecha_fin
+                if fecha_inicio > fecha_fin:
+                    return None
+
+                # Calcular la duración en meses
+                duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+
+                # Retornar el objeto con las fechas y la duración
+                return {
+                    'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+                    'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+                    'duracion': duracion_meses
+                }
+
+        except ValueError:
+                return None
+    
+    def validar_valores(self, valor_inicial, valor_final):
+        try:
+            # Convertir los valores a números enteros
+            valor_inicial = float(valor_inicial)
+            valor_final = float(valor_final)
+
+            # Validar que ambos valores sean no negativos
+            if valor_inicial < 0 or valor_final < 0:
+                return None
+
+            # Validar que el valor inicial sea menor o igual al valor final
+            if valor_inicial > valor_final:
+                return None
+
+            # Si todo está bien, retornar los valores como un objeto
+            return {
+                'valor_inicial': valor_inicial,
+                'valor_final': valor_final
+            }
+
+        except ValueError as e:
+            # Manejar el caso en que los valores no sean válidos
+            return {
+                'error': f"Error de validación: {str(e)}"
+            }  
+    # metodos para consultas a la base de datos
     def encontrar_id_usuario(self, identificacion):
         return (
                 session.query(UsuarioDatosPersonales)
@@ -172,16 +386,65 @@ class Proyectos:
                 .first()
             )
     
-    def ids_unidad_organizativas(self,id_unidad_gerencia,id_unidad_organizativa):
-        return (
+    def ids_unidad_organizativas(self, id_unidad_gerencia, id_unidad_organizativa):
+        unidad_organizativa_alias = aliased(ProyectoUnidadOrganizativa)
+        unidad_gerencia_alias = aliased(ProyectoUnidadGerencia)
+
+        result = (
             session.query(
-                ProyectoUnidadOrganizativa.id.label('id_unidad_organizativa'),
-                ProyectoUnidadGerencia.id.label('id_unidad_de_gerencia')
+                unidad_organizativa_alias.id.label('unidad_organizativa_id_erp'),
+                unidad_gerencia_alias.id.label('unidad_gerencia_id_erp')
             )
-            .join(ProyectoUnidadGerencia, ProyectoUnidadGerencia.id == ProyectoUnidadOrganizativa.gerencia_id)
+            .join(unidad_gerencia_alias, unidad_gerencia_alias.id == unidad_organizativa_alias.gerencia_id)
             .filter(
-                ProyectoUnidadOrganizativa.unidad_organizativa_id_erp == id_unidad_organizativa,
-                ProyectoUnidadGerencia.unidad_gerencia_id_erp == id_unidad_gerencia
+                unidad_organizativa_alias.unidad_organizativa_id_erp == id_unidad_organizativa,
+                unidad_gerencia_alias.unidad_gerencia_id_erp == id_unidad_gerencia
             )
             .first()
         )
+
+        if result:
+            return result._asdict()
+        else:
+            return None
+        
+    def obtener_estado_proyecto_cliente(self, id_erp_cliente):
+             return (
+                session.query(ProyectoCliente).filter(
+                and_(
+                       ProyectoCliente.cliente_id_erp == id_erp_cliente,
+                       ProyectoCliente.estado == 1
+                )
+                ).first()
+           )
+        
+    def obtener_estado_proyecto_estado(self,id_estado):
+            return (
+                session.query(ProyectoEstado).filter(
+                and_(
+                       ProyectoEstado.estado_id_erp == id_estado,
+                       ProyectoEstado.estado == 1
+                )
+                ).first()
+           )
+            
+    def obtener_estado_proyecto_ceco(self,id_ceco):
+            return (
+                session.query(ProyectoCeco).filter(
+                and_(
+                       ProyectoCeco.ceco_id_erp == id_ceco,
+                       ProyectoCeco.estado == 1
+                )
+                ).first()
+           )
+        
+        #      return (
+        #     session.query(UsuarioDatosPersonales)
+        #     .filter(
+        #         and_(
+        #             UsuarioDatosPersonales.identificacion == identificacion,
+        #             UsuarioDatosPersonales.estado == 1,
+        #         )
+        #     )
+        #     .first()
+        # )

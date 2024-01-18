@@ -38,7 +38,8 @@ class ModeloProyectos(Base):
             unidad_gerencia_id,
             unidad_organizativa_id,
             cliente_id,
-            ceco_id):
+            ceco_id,
+            estado):
         
         self.id = id
         self.proyecto_id_erp = proyecto_id_erp
@@ -55,6 +56,7 @@ class ModeloProyectos(Base):
         self.unidad_organizativa_id = unidad_organizativa_id
         self.cliente_id = cliente_id
         self.ceco_id = ceco_id
+        self.esatdo = estado
 
 
     def to_dict(self):
