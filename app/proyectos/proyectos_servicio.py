@@ -22,17 +22,17 @@ class Proyectos:
         # con esta data se hara la comparacion para los datos que estan en registros
         self.proyectos_existentes = self.obtener()
         # y esta data se realizara la comparacion contra los que tiene para actualizar
-        self.proyectos_existentes_por_estado = self.obtener_por_estado_gerencia()
+        self.proyectos_existentes_por_estado = self.obtener_por_estado_proyectos()
         resultado_estructuracion = self.__proceso_de_proyectos_estructuracion()
         self.__proyectos_excel_duplicada = resultado_estructuracion['duplicados']
         self.__proyectos_excel = resultado_estructuracion['resultado']
         # data procesada contiene los datos en 0 de las id que no existen en otras tablas
-        self.__proyectos = self.gerencia_usuario_procesada()
+        self.__proyectos = self.inforamcion_proyectos_procesada()
         
         
     
     def comparacion_existe_datos(self,obtener_proyectos_existentes)->bool:
-        len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
+        return len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
     
       
     def transacciones(self):
@@ -42,7 +42,7 @@ class Proyectos:
                         'Respuesta':[
                             {
                                 "proyecto_registradas": self.__proyectos,
-                                "proyectos_actualizadas": [],
+                                "proyectos_actualizadas": self.obtener_proyectos_actualizacion(),
                                 "proyectos_sin_cambios": [],
                             }
                         ],
@@ -74,7 +74,7 @@ class Proyectos:
         return proyecto_datos
     
     
-    def obtener_por_estado_gerencia(self, estado=1):
+    def obtener_por_estado_proyectos(self, estado=1):
         datos_proyectos = session.query(ModeloProyectos).filter_by(estado=estado).all()
         # Convertir lista de objetos a lista de diccionarios
         proyecto_datos = [
@@ -220,7 +220,7 @@ class Proyectos:
     #         session.rollback()
     #         raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
     
-    def gerencia_usuario_procesada(self):
+    def inforamcion_proyectos_procesada(self):
         try:
             proyectos_excel = self.validacion_informacion_identificacion()
             resultados = []
@@ -235,7 +235,41 @@ class Proyectos:
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
     
-    
+    def obtener_proyectos_actualizacion(self):
+        validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes_por_estado)
+
+        if validacion_contenido:
+            
+            df_proyectos = pd.DataFrame(self.__proyectos)
+            df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
+            
+            #df_obtener_proyectos_existentes = [[]]
+            
+            filtro_actualizacion = pd.merge(
+                df_proyectos,
+                df_obtener_proyectos_existentes,
+                on=['ceco_id'],
+                how ='inner'
+            )
+            
+            filtro_actualizacion.head(2)
+
+            # resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id',
+            #                                            'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
+            #                                            'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
+            #                                            'valor_inicial_x','valor_final_x']].rename(
+            #     columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
+            # )
+            
+            # filtro_personalizado = resultado_filtro_actualizacion[
+            #     (resultado_filtro_actualizacion[['ceco_id', 'responsable_id', 'unidad_organizativa_id', 'unidad_gerencia_id', 'cliente_id', 'estado_id', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final']] != 0).all(axis=1)
+            # ]
+            
+            # resultado_final = filtro_personalizado[~filtro_personalizado.isin(df_obtener_proyectos_existentes.to_dict('list')).all(1)]
+
+            return filtro_actualizacion.to_dict(orient='records')
+        
+        return []  
     # metodos para obtener los valores de las validaciones
     
     def obtener_usuario(self,proyecto):
@@ -254,24 +288,8 @@ class Proyectos:
             'unidad_gerencia_id_erp': unidades_organizativas['unidad_gerencia_id_erp'] if unidades_organizativas else 0
             }
 
-    # def obtener_id_cliente(self,proyecto):
-    #     unidad_cliente_id = proyecto['cliente_id']
-    #     id_cliente = self.obtener_estado_proyecto_cliente(unidad_cliente_id)
-    #     return id_cliente.to_dict().get("id") if id_cliente else 0
-    
-    # def obtener_ceco_proyecto(self,proyecto):
-    #     ceco_id = proyecto['ceco_id']
-    #     id = self.obtener_ceco_proyecto_estado(ceco_id)
-    #     return id.to_dict().get("id") if id else 0
-
-    # def obtener_id_estado_proyecto(self,proyecto):
-    #     estado_id = proyecto['estado_id']
-    #     unidad_estado_id = self.obtener_estado_proyecto_estado(estado_id)
-    #     return unidad_estado_id.to_dict().get("id") if unidad_estado_id else 0
-    
     def obtener_id_entidad(self, proyecto, entidad):
         id_entidad = proyecto[f'{entidad}_id']
-        print(id_entidad)
         entidad_obj = getattr(self,f'obtener_estado_proyecto_{entidad}')(id_entidad)
         return entidad_obj.to_dict().get("id") if entidad_obj else 0
 
@@ -297,8 +315,8 @@ class Proyectos:
             "objeto":proyecto["objeto"],
             "contrato":proyecto["contrato"],
             "responsable_id": self.obtener_usuario(proyecto),
-            "unidad_organizativa_id_erp": unidades_administrativas['unidad_organizativa_id_erp'],
-            "unidad_gerencia_id_erp": unidades_administrativas['unidad_gerencia_id_erp'],
+            "unidad_organizativa_id": unidades_administrativas['unidad_organizativa_id_erp'],
+            "unidad_gerencia_id": unidades_administrativas['unidad_gerencia_id_erp'],
             "cliente_id": self.obtener_id_entidad(proyecto,'cliente'),
             "estado_id": self.obtener_id_entidad(proyecto,'estado'),
             "fecha_inicio":obtener_fechas['fecha_inicio'] if obtener_fechas else 0,
