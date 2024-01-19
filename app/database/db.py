@@ -14,18 +14,13 @@ try:
     
     engine = sqlalchemy.create_engine(
         DATABASE_URL,
-        encoding='utf-8',
         pool_size=5,
         pool_recycle=3600
     )
 
-    Session = sessionmaker(bind=engine,autoflush=True,autocommit=True)
+    Session = sessionmaker(bind=engine, autoflush=True, autocommit=False)  # Cambiado a autocommit=False
     session = Session()
     Base = declarative_base()
     
-    # logging.basicConfig()
-    # logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-    
 except SQLAlchemyError as e:
     raise RuntimeError(f"Error en la conexión a la base de datos: {str(e)}")
-

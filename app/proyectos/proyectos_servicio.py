@@ -220,29 +220,36 @@ class Proyectos:
             df_proyectos = pd.DataFrame(self.__proyectos)
             df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
             
-            df_obtener_proyectos_existentes_columnas_requeridas = df_obtener_proyectos_existentes.drop('proyecto_id_erp', axis=1)
+            df_obtener_proyectos_existentes_v2 = df_obtener_proyectos_existentes.drop('proyecto_id_erp', axis=1)
             
+            #df_obtener_proyectos_existentes = [[]]
             
             filtro_actualizacion = pd.merge(
                 df_proyectos,
-                df_obtener_proyectos_existentes_columnas_requeridas,
+                df_obtener_proyectos_existentes_v2,
                 on=['ceco_id'],
                 how ='inner'
             )
             
-            resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id_x',
+
+            resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id',
                                                        'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
                                                        'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
                                                        'valor_inicial_x','valor_final_x']].rename(
                 columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
             )
-                                                       
-            columnas_comparar = ['id', 'nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']                                          
             
-            filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(resultado_filtro_actualizacion,df_obtener_proyectos_existentes,columnas_comparar)
+            filtro_personalizado = resultado_filtro_actualizacion[
+                (resultado_filtro_actualizacion[['ceco_id', 'responsable_id', 'unidad_organizativa_id', 'unidad_gerencia_id', 'cliente_id', 'estado_id', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final']] != 0).all(axis=1)
+            ]
+            columnas_comparar = ['id', 'nombre', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']
             
-            resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
+            filtro_personalizado_subset = filtro_personalizado[columnas_comparar]
+            df_obtener_proyectos_existentes_v2_subset = df_obtener_proyectos_existentes_v2[columnas_comparar]
+            
+            resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_v2_subset.to_dict('list')).all(1)]
             # resultado_final = filtro_personalizado[~filtro_personalizado.isin(df_obtener_proyectos_existentes_v2.to_dict('list')).all(1)]
+            
             return resultado_final.to_dict(orient='records')
         
         return []  
