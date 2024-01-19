@@ -21,6 +21,7 @@ class ModeloProyectos(Base):
     unidad_organizativa_id = Column(Integer, unique = False, nullable=False, primary_key = True)
     cliente_id = Column(Integer, unique = False, nullable=False, primary_key=True)
     ceco_id = Column(Integer, unique = False, nullable=False, primary_key=True)
+    responsable_id = Column(Integer, unique = False, nullable=False, primary_key=False)
     estado = Column(TINYINT(unsigned=True), default = 1)
 
     def __init__(self, 
@@ -39,6 +40,7 @@ class ModeloProyectos(Base):
             unidad_organizativa_id,
             cliente_id,
             ceco_id,
+            responsable_id,
             estado):
         
         self.id = id
@@ -56,6 +58,7 @@ class ModeloProyectos(Base):
         self.unidad_organizativa_id = unidad_organizativa_id
         self.cliente_id = cliente_id
         self.ceco_id = ceco_id
+        self.responsable_id = responsable_id
         self.esatdo = estado
 
 
@@ -76,4 +79,5 @@ class ModeloProyectos(Base):
             "unidad_organizativa_id": self.unidad_organizativa_id,
             "cliente_id": self.cliente_id,
             "ceco_id": self.ceco_id,
+            "responsable_id":self.responsable_id
         }

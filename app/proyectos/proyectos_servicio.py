@@ -41,12 +41,13 @@ class Proyectos:
                     "log_transaccion_excel": {
                         'Respuesta':[
                             {
-                                "proyecto_registradas": self.__proyectos,
+                                "proyecto_registradas": self.obtener_proyectos_registro(),
                                 "proyectos_actualizadas": self.obtener_proyectos_actualizacion(),
                                 "proyectos_sin_cambios": [],
                             }
                         ],
                         'errores':{
+
                             "proyecto_responsable_no_existe": [],
                             "proyecto_cliente_no_existe":[],
                             "proyectos_unidad_administrativas":[],
@@ -56,6 +57,7 @@ class Proyectos:
                         }
                     },
                     'estado':{
+
                         'id':0
                     }
                 }
@@ -235,6 +237,17 @@ class Proyectos:
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
     
+    def comparacion_columnas_filtro(self,resultado_filtro_actualizacion:pd.DataFrame,df_obtener_proyectos_existentes_columnas_requeridas:pd.DataFrame,columnas_comparar):
+            filtro_personalizado = resultado_filtro_actualizacion[
+                (resultado_filtro_actualizacion[['ceco_id', 'responsable_id', 'unidad_organizativa_id', 'unidad_gerencia_id', 'cliente_id', 'estado_id', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final']] != 0).all(axis=1)
+            ]
+            
+            filtro_personalizado_subset = filtro_personalizado[columnas_comparar]
+            df_obtener_proyectos_existentes_columnas_requeridas_subset = df_obtener_proyectos_existentes_columnas_requeridas[columnas_comparar]
+            
+            return filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset
+        
+    # metodos para obtener las funcionalidades
     def obtener_proyectos_actualizacion(self):
         validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes_por_estado)
 
@@ -243,33 +256,56 @@ class Proyectos:
             df_proyectos = pd.DataFrame(self.__proyectos)
             df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
             
-            #df_obtener_proyectos_existentes = [[]]
+            df_obtener_proyectos_existentes_columnas_requeridas = df_obtener_proyectos_existentes.drop('proyecto_id_erp', axis=1)
+            
             
             filtro_actualizacion = pd.merge(
                 df_proyectos,
-                df_obtener_proyectos_existentes,
+                df_obtener_proyectos_existentes_columnas_requeridas,
                 on=['ceco_id'],
                 how ='inner'
             )
             
-            filtro_actualizacion.head(2)
-
-            # resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id',
-            #                                            'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
-            #                                            'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
-            #                                            'valor_inicial_x','valor_final_x']].rename(
-            #     columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
-            # )
+            resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id_x',
+                                                       'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
+                                                       'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
+                                                       'valor_inicial_x','valor_final_x']].rename(
+                columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
+            )
+                                                       
+            columnas_comparar = ['id', 'nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']                                          
             
-            # filtro_personalizado = resultado_filtro_actualizacion[
-            #     (resultado_filtro_actualizacion[['ceco_id', 'responsable_id', 'unidad_organizativa_id', 'unidad_gerencia_id', 'cliente_id', 'estado_id', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final']] != 0).all(axis=1)
-            # ]
+            filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(resultado_filtro_actualizacion,df_obtener_proyectos_existentes,columnas_comparar)
             
-            # resultado_final = filtro_personalizado[~filtro_personalizado.isin(df_obtener_proyectos_existentes.to_dict('list')).all(1)]
-
-            return filtro_actualizacion.to_dict(orient='records')
+            resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
+            # resultado_final = filtro_personalizado[~filtro_personalizado.isin(df_obtener_proyectos_existentes_v2.to_dict('list')).all(1)]
+            return resultado_final.to_dict(orient='records')
         
         return []  
+    
+    def obtener_proyectos_registro(self):
+        
+            validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
+            
+            if validacion_contenido:
+                
+                df_proyectos = pd.DataFrame(self.__proyectos)
+                df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes)
+
+                columnas_comparar = ['nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']   
+                                                       
+                filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(df_proyectos,df_obtener_proyectos_existentes,columnas_comparar)
+                
+                obtener_ceco_registro = filtro_personalizado_subset[
+                    ~filtro_personalizado_subset.apply(lambda x: (
+                        (x['ceco_id'] in set(df_obtener_proyectos_existentes_columnas_requeridas_subset['ceco_id'])) 
+                    ), axis=1)
+                ]
+
+                return obtener_ceco_registro.to_dict(orient='records')
+        
+            return []
+ 
     # metodos para obtener los valores de las validaciones
     
     def obtener_usuario(self,proyecto):
