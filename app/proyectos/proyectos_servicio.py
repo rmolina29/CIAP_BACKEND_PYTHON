@@ -36,14 +36,19 @@ class Proyectos:
     
       
     def transacciones(self):
- 
+        
+        lista_insert = self.obtener_proyectos_registro()
+        gerencia_update = self.obtener_proyectos_actualizacion()
+        
+        transaccion_registro = self.insertar_inforacion(lista_insert)
+        transaccion_actualizar = self.actualizar_informacion(gerencia_update)
         log_transaccion_registro_proyecto = {
                     "log_transaccion_excel": {
                         'Respuesta':[
                             {
-                                "proyecto_registradas": self.obtener_proyectos_registro(),
-                                "proyectos_actualizadas": self.obtener_proyectos_actualizacion(),
-                                "proyectos_sin_cambios": [],
+                                "proyecto_registradas": transaccion_registro,
+                                "proyectos_actualizadas": transaccion_actualizar,
+                                "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios(),
                             }
                         ],
                         'errores':{
@@ -51,6 +56,7 @@ class Proyectos:
                             "proyecto_responsable_no_existe": [],
                             "proyecto_cliente_no_existe":[],
                             "proyectos_unidad_administrativas":[],
+                            "monto_invalidas":self.obtener_valores_monto_invalidos(),
                             "proyecto_filtro_nit_invalido":self.validacion_informacion_identificacion()['nit_invalido'],
                             # "proyectos_existentes":excepciones_proyecto,
                             "proyectos_duplicadas": self.__proyectos_excel_duplicada
@@ -184,52 +190,10 @@ class Proyectos:
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
     
-    # def gerencia_usuario_procesada(self):
-    #     try:
-    #         proyectos_excel = self.validacion_informacion_identificacion()
-    #         resultados = []
-    #         for proyecto in proyectos_excel['proyecto_filtro_datos']:
-                
-    #             identificacion = proyecto['identificacion']
-    #             unidad_gerencia_id = proyecto['unidad_gerencia_id']
-    #             unidad_organizativa_id = proyecto['unidad_organizativa_id']
-    #             estado_id = proyecto['estado_id']
-    #             unidad_cliente_id = proyecto['cliente_id']
-    #             fecha_inicio = proyecto['fecha_inicio']
-    #             fecha_final = proyecto['fecha_final']
-    #             # Verificar si el valor es un número y no es NaN
-    #             usuario = self.encontrar_id_usuario(int(identificacion))
-    #             ids_unidad_gerencia_y_organizativa = self.ids_unidad_organizativas(unidad_gerencia_id,unidad_organizativa_id)
-    #             unidad_estado_id = self.obtener_estado_proyecto_estado(estado_id)
-    #             id_cliente = self.obtener_estado_proyecto_cliente(unidad_cliente_id)
-    #             calcular_estructuracion_fechas = self.calcular_estructuracion_fechas(fecha_inicio,fecha_final)
-           
-                
-    #             resultados.append({
-    #                 "nombre": proyecto["nombre"],
-    #                 "responsable_id": usuario.to_dict().get("id_usuario") if usuario else 0,
-    #                 "unidad_organizativa_id_erp":ids_unidad_gerencia_y_organizativa["unidad_organizativa_id_erp"] if ids_unidad_gerencia_y_organizativa else 0,
-    #                 "unidad_gerencia_id_erp":ids_unidad_gerencia_y_organizativa['unidad_gerencia_id_erp'] if ids_unidad_gerencia_y_organizativa else 0,
-    #                 "cliente_id":id_cliente.to_dict().get("id") if id_cliente else 0,
-    #                 "estado_id":unidad_estado_id.to_dict().get("id")  if unidad_estado_id else 0,
-                    
-    #                 })
-            
-    #         return resultados
-
-    #     except Exception as e:
-    #         print(e)
-    #         session.rollback()
-    #         raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
-    
     def inforamcion_proyectos_procesada(self):
         try:
             proyectos_excel = self.validacion_informacion_identificacion()
-            resultados = []
-
-            for proyecto in proyectos_excel['proyecto_filtro_datos']:
-                resultados.append(self.procesar_proyecto(proyecto))
-
+            resultados = [self.procesar_proyecto(proyecto) for proyecto in proyectos_excel['proyecto_filtro_datos']]
             return resultados
 
         except Exception as e:
@@ -247,7 +211,7 @@ class Proyectos:
             
             return filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset
         
-    # metodos para obtener las funcionalidades
+    # metodos para obtener las funcionalidades (log de transaccion)
     def obtener_proyectos_actualizacion(self):
         validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes_por_estado)
 
@@ -306,7 +270,52 @@ class Proyectos:
         
             return []
  
+    def obtener_no_sufrieron_cambios(self):
+            validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes_por_estado)
+
+            if validacion_contenido:
+                df_proyectos = pd.DataFrame(self.__proyectos)
+                df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
+
+                # Selecciona solo las columnas requeridas
+                columnas_requeridas = ['nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']
+                
+                # Utiliza merge para encontrar las filas que son iguales en ambos DataFrames
+                no_sufren_cambios = pd.merge(
+                    df_proyectos[columnas_requeridas],
+                    df_obtener_proyectos_existentes[columnas_requeridas],
+                    how='inner',
+                    on=columnas_requeridas
+                )
+
+                proyectos_sin_cambios = no_sufren_cambios.to_dict(orient='records')
+            else:
+                proyectos_sin_cambios = []
+
+            return proyectos_sin_cambios
     # metodos para obtener los valores de las validaciones
+    def obtener_exepcion_responsable_no_existe(self):
+        pass
+    
+    # se obtiene los proyectos que se le han enviado y al compararlo no existen en la base de datos 
+    # (proyecto_ceco, proyecto_estado,proyecto cliente y la relacion entre proyecto_unidad_gerencia y proyecto_unidad_organizativa)
+    def proyectos_no_identificados(self):
+        pass
+    
+    def obtener_fechas_invalidas(self):
+        pass
+    
+    def obtener_valores_monto_invalidos(self):
+          df_proyectos = pd.DataFrame(self.__proyectos)
+
+          if df_proyectos.empty:
+              return []
+          
+          filtro_personalizado = df_proyectos[
+                (df_proyectos[['valor_inicial', 'valor_final']] == 0).all(axis=1)
+            ]
+          
+          return {'exepcion_monto':filtro_personalizado[['valor_inicial', 'valor_final']].to_dict(orient='records'), 'mensaje':'Por favor,realizar verificacion de los montos de valor inicial y final.'}
     
     def obtener_usuario(self,proyecto):
         identificacion = proyecto['identificacion']
@@ -339,12 +348,11 @@ class Proyectos:
         valor_final = proyecto['valor_final']
         return self.validar_valores(valor_inicial,valor_final)
 
-    def procesar_proyecto(self,proyecto):
-        
+    def procesar_proyecto(self, proyecto):
         unidades_administrativas = self.obtener_ids_unidad_gerencia_organizativa(proyecto)
         obtener_fechas = self.obtener_estructuracion_fechas(proyecto)
         monto = self.obtener_valores_proyectos(proyecto)
-        
+
         return {
             "ceco_id":self.obtener_id_entidad(proyecto,'ceco'),
             "nombre": proyecto["nombre"],
@@ -427,7 +435,29 @@ class Proyectos:
             return {
                 'error': f"Error de validación: {str(e)}"
             }  
-    # metodos para consultas a la base de datos
+    
+    # metodos para consultas o para las operaciones de la base de datos
+    def insertar_inforacion(self, proyectos_nuevos: List):
+        try:
+            if len(proyectos_nuevos) > 0:
+                # session.bulk_insert_mappings(Proyectos, proyectos_nuevos)
+                return proyectos_nuevos
+
+            return "No se han registrado datos"
+        except SQLAlchemyError as e:
+              print(f"Se produjo un error de SQLAlchemy: {e}")
+            #   return e
+        
+
+    def actualizar_informacion(self, actualizar_proyectos):
+        try:
+            if len(actualizar_proyectos) > 0  :
+                # session.bulk_update_mappings(Proyectos, actualizar_proyectos)
+                return actualizar_proyectos
+            return "No se han actualizado datos"
+        except SQLAlchemyError as e:
+              print(f"Se produjo un error de SQLAlchemy: {e}")
+    
     def encontrar_id_usuario(self, identificacion):
         return (
                 session.query(UsuarioDatosPersonales)
