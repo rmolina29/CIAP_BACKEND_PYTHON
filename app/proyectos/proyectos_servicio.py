@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi import  UploadFile
 import pandas as pd
 from sqlalchemy.orm import aliased
-from datetime import datetime, timedelta
+from datetime import datetime
 
 class Proyectos:
     
@@ -53,10 +53,13 @@ class Proyectos:
                         ],
                         'errores':{
 
-                            "proyecto_responsable_no_existe": [],
-                            "proyecto_cliente_no_existe":[],
-                            "proyectos_unidad_administrativas":[],
-                            "monto_invalidas":self.obtener_valores_monto_invalidos(),
+                            "proyecto_responsable_no_existe": self.obtener_exepcion_responsable_no_existe(),
+                            "proyectos_unidad_administrativas":self.proyectos_unidad_excepcion(),
+                            "proyectos_estado_no_existe": self.estado_proyecto_no_existe(),
+                            "proyectos_cliente_no_existe": self.cliente_no_existe(),
+                            "proyectos_invalidos":self.id_proyectos_invalidos(),
+                            "fecha_invalidas":self.obtener_fechas_invalidas(),
+                            "monto_invalidas":self.obtener_montos_invalidas(),
                             "proyecto_filtro_nit_invalido":self.validacion_informacion_identificacion()['nit_invalido'],
                             "proyectos_duplicadas": self.__proyectos_excel_duplicada
                         }
@@ -204,7 +207,6 @@ class Proyectos:
             filtro_personalizado = resultado_filtro_actualizacion[
                 (resultado_filtro_actualizacion[['ceco_id', 'responsable_id', 'unidad_organizativa_id', 'unidad_gerencia_id', 'cliente_id', 'estado_id', 'fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final']] != 0).all(axis=1)
             ]
-            
             filtro_personalizado_subset = filtro_personalizado[columnas_comparar]
             df_obtener_proyectos_existentes_columnas_requeridas_subset = df_obtener_proyectos_existentes_columnas_requeridas[columnas_comparar]
             
@@ -275,10 +277,15 @@ class Proyectos:
             if validacion_contenido:
                 df_proyectos = pd.DataFrame(self.__proyectos)
                 df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
+                
+                df_proyectos['fecha_inicio'] = df_proyectos['fecha_inicio'].astype(str)
+                df_obtener_proyectos_existentes['fecha_inicio'] = df_obtener_proyectos_existentes['fecha_inicio'].astype(str)
+                
+                df_proyectos['fecha_final'] = df_proyectos['fecha_final'].astype(str)
+                df_obtener_proyectos_existentes['fecha_final'] = df_obtener_proyectos_existentes['fecha_final'].astype(str)
 
                 # Selecciona solo las columnas requeridas
                 columnas_requeridas = ['nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']
-                
                 # Utiliza merge para encontrar las filas que son iguales en ambos DataFrames
                 no_sufren_cambios = pd.merge(
                     df_proyectos[columnas_requeridas],
@@ -287,6 +294,7 @@ class Proyectos:
                     on=columnas_requeridas
                 )
 
+                
                 proyectos_sin_cambios = no_sufren_cambios.to_dict(orient='records')
             else:
                 proyectos_sin_cambios = []
@@ -294,27 +302,73 @@ class Proyectos:
             return proyectos_sin_cambios
     # metodos para obtener los valores de las validaciones
     def obtener_exepcion_responsable_no_existe(self):
-        pass
+        obtener_responsable_id_no_existe = self.atrapar_una_excepcion('responsable_id','Por favor verificar que el NIT del gerente exista (se encuentre activo).')
+        return obtener_responsable_id_no_existe
     
     # se obtiene los proyectos que se le han enviado y al compararlo no existen en la base de datos 
     # (proyecto_ceco, proyecto_estado,proyecto cliente y la relacion entre proyecto_unidad_gerencia y proyecto_unidad_organizativa)
-    def proyectos_no_identificados(self):
-        pass
+    def proyectos_unidad_excepcion(self):
+        obtener_excepcion_fechas = self.atrapar_excepciones('unidad_organizativa_id','unidad_gerencia_id','Por favor,realizar que el id de la gerencia o unidad_organizativa existan o se ecuentren activas y que la gerencia se ecuntre vinculada a una unidad organizativa.')
+        return obtener_excepcion_fechas
     
-    def obtener_fechas_invalidas(self):
-        pass
+    def cliente_no_existe(self):
+        obtener_excepcion_cliente_proyectos = self.atrapar_una_excepcion('cliente_id','Por favor verificar que el id del proyecto cliente exista (se encuentre activo).')
+        return obtener_excepcion_cliente_proyectos
     
-    def obtener_valores_monto_invalidos(self):
-          df_proyectos = pd.DataFrame(self.__proyectos)
+    def estado_proyecto_no_existe(self):
+        obtener_excepcion_estado = self.atrapar_una_excepcion('estado_id','Por favor verificar que el id del proyecto estado exista (se encuentre activo).')
+        return obtener_excepcion_estado
+    
+    def id_proyectos_invalidos(self):
+        obtener_excepcion_proyectos = self.atrapar_una_excepcion('ceco_id','Por favor verificar que el id del proyecto exista (se encuentre activo), o no se encuentre actualmente registrado en los proyectos.')
+        return obtener_excepcion_proyectos
 
-          if df_proyectos.empty:
+    
+    def atrapar_una_excepcion(self,llave:str,mensaje:str):
+        df_proyectos = pd.DataFrame(self.__proyectos)
+        
+        if df_proyectos.empty:
+            return []
+        
+        # Verificar si hay algún valor igual a 0 en la columna 'ceco_id'
+        no_existen = (df_proyectos[llave] == 0).any()
+        
+        if not no_existen:
+            return []
+        
+        obtener_excepcion = df_proyectos[df_proyectos[llave] == 0][['contrato']].to_dict(orient='records')
+        
+        if len(obtener_excepcion) == 0:
+            return []
+        
+        return {'exepcion': obtener_excepcion, 'mensaje': mensaje}
+    
+    def atrapar_excepciones(self,llave_inicial,llave_final,mensaje):
+        df_proyectos = pd.DataFrame(self.__proyectos)
+        
+        if df_proyectos.empty:
               return []
           
-          filtro_personalizado = df_proyectos[
-                (df_proyectos[['valor_inicial', 'valor_final']] == 0).all(axis=1)
+        filtro_personalizado = df_proyectos[
+                (df_proyectos[[llave_inicial, llave_final]] == 0).any(axis=1)
             ]
           
-          return {'exepcion_monto':filtro_personalizado[['valor_inicial', 'valor_final']].to_dict(orient='records'), 'mensaje':'Por favor,realizar verificacion de los montos de valor inicial y final.'}
+        obtener_monto = filtro_personalizado[['contrato']].to_dict(orient='records')
+
+          
+        if len(obtener_monto) == 0:
+              return []
+          
+        return {'exepcion':obtener_monto, 'mensaje':mensaje}
+    
+    def obtener_montos_invalidas(self):
+        obtener_excepcion_fechas = self.atrapar_excepciones('valor_inicial','valor_final','Por favor,realizar verificacion de los montos de valor inicial y final sean superior a 0.')
+        return obtener_excepcion_fechas
+    
+    
+    def obtener_fechas_invalidas(self):
+        obtener_fecha_invalida = self.atrapar_excepciones('fecha_inicio','fecha_final','Por favor,realizar verificacion de los campos de fecha tengan el formato indicado (2024-01-20)')
+        return obtener_fecha_invalida
     
     def obtener_usuario(self,proyecto):
         identificacion = proyecto['identificacion']
@@ -438,9 +492,10 @@ class Proyectos:
     # metodos para consultas o para las operaciones de la base de datos
     def insertar_inforacion(self, proyectos_nuevos: List):
         try:
-            if len(proyectos_nuevos) > 0:
+            num_proyectos = len(proyectos_nuevos)
+            if num_proyectos > 0:
                 # session.bulk_insert_mappings(Proyectos, proyectos_nuevos)
-                return proyectos_nuevos
+                return f'Se han realizado un total de {num_proyectos} registros exitosos.'
 
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -450,9 +505,10 @@ class Proyectos:
 
     def actualizar_informacion(self, actualizar_proyectos):
         try:
-            if len(actualizar_proyectos) > 0  :
+            num_proyectos = len(actualizar_proyectos)
+            if num_proyectos > 0  :
                 # session.bulk_update_mappings(Proyectos, actualizar_proyectos)
-                return actualizar_proyectos
+                 return f'Se han realizado un total de {num_proyectos} actualizaciones exitososas.'
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
               print(f"Se produjo un error de SQLAlchemy: {e}")
