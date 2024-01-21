@@ -1,11 +1,9 @@
-import math
 from app.proyectos.model.proyectos import ModeloProyectos
 from app.parametros.ceco.model.ceco_model import ProyectoCeco
 from app.parametros.estado.model.estado_model import ProyectoEstado
 from app.parametros.cliente.model.cliente_model import ProyectoCliente
 from app.parametros.direccion.model.proyecto_unidad_organizativa import ProyectoUnidadOrganizativa
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
-from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
 from typing import List
 from sqlalchemy import and_
@@ -14,6 +12,7 @@ from fastapi import  UploadFile
 import pandas as pd
 from sqlalchemy.orm import aliased
 from datetime import datetime
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 
 class Proyectos:
     
@@ -294,8 +293,13 @@ class Proyectos:
                     on=columnas_requeridas
                 )
 
+                proyectos_sin_cambio = no_sufren_cambios[['contrato']].to_dict(orient='records')
                 
-                proyectos_sin_cambios = no_sufren_cambios.to_dict(orient='records')
+                proyectos_sin_cambios = [{
+                    'sin_cambios':proyectos_sin_cambio,
+                    'mensaje': f"se econtraron un total de {len(proyectos_sin_cambio)} proyectos sin cambios"
+                }]
+                
             else:
                 proyectos_sin_cambios = []
 
@@ -372,9 +376,9 @@ class Proyectos:
     
     def obtener_usuario(self,proyecto):
         identificacion = proyecto['identificacion']
-        usuario = self.encontrar_id_usuario(int(identificacion))
+        usuario = self.encontrar_id_usuario(int(identificacion))['id_usuario']
         # Verificar si el valor es un número y no es NaN
-        return usuario.to_dict().get("id_usuario") if usuario else 0
+        return usuario if usuario else 0
 
     def obtener_ids_unidad_gerencia_organizativa(self,proyecto):
         unidad_gerencia_id = proyecto['unidad_gerencia_id']
@@ -494,7 +498,8 @@ class Proyectos:
         try:
             num_proyectos = len(proyectos_nuevos)
             if num_proyectos > 0:
-                # session.bulk_insert_mappings(Proyectos, proyectos_nuevos)
+                session.bulk_insert_mappings(ModeloProyectos, proyectos_nuevos)
+                session.commit()
                 return f'Se han realizado un total de {num_proyectos} registros exitosos.'
 
             return "No se han registrado datos"
@@ -507,23 +512,17 @@ class Proyectos:
         try:
             num_proyectos = len(actualizar_proyectos)
             if num_proyectos > 0  :
-                # session.bulk_update_mappings(Proyectos, actualizar_proyectos)
+                 session.bulk_update_mappings(ModeloProyectos, actualizar_proyectos)
+                 session.commit()
                  return f'Se han realizado un total de {num_proyectos} actualizaciones exitososas.'
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
               print(f"Se produjo un error de SQLAlchemy: {e}")
     
     def encontrar_id_usuario(self, identificacion):
-        return (
-                session.query(UsuarioDatosPersonales)
-                .filter(
-                    and_(
-                        UsuarioDatosPersonales.identificacion == identificacion,
-                        UsuarioDatosPersonales.estado == 1,
-                    )
-                )
-                .first()
-            )
+        gestor_excel = GestorExcel()
+        id_gerente_encargado = gestor_excel.obtener_id_usuario(identificacion) 
+        return id_gerente_encargado
     
     def ids_unidad_organizativas(self, id_unidad_gerencia, id_unidad_organizativa):
         unidad_organizativa_alias = aliased(ProyectoUnidadOrganizativa)

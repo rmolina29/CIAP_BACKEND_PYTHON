@@ -353,6 +353,7 @@ class Direccion:
         try:
             if len(novedades_unidad_organizativa) > 0:
                 # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
+                # session.commit()
                 return novedades_unidad_organizativa
 
             return "No se han registrado datos"
@@ -367,6 +368,7 @@ class Direccion:
         
             if len(actualizacion_gerencia_unidad_organizativa) > 0:
                 # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                # session.commit()
                 return actualizacion_gerencia_unidad_organizativa
 
             return "No se han actualizado datos"

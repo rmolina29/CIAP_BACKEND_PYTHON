@@ -1,4 +1,5 @@
 import math
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
 from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
@@ -380,12 +381,12 @@ class Gerencia:
                 nit_value = gerencia['NIT']
                 # Verificar si el valor es un número y no es NaN
                 if isinstance(nit_value, (int, float)) and not math.isnan(nit_value):
-                    usuario = self.query_usuario(int(nit_value))
+                    usuario = self.encontrar_id_usuario(int(nit_value))['id_usuario']
 
                     resultados.append({
                         "unidad_gerencia_id_erp": gerencia["unidad_gerencia_id_erp"],
                         "nombre": gerencia["nombre"],
-                        "responsable_id": usuario.to_dict().get("id_usuario") if usuario else 0,
+                        "responsable_id": usuario if usuario else 0,
                     })
                     
             return resultados
@@ -393,23 +394,17 @@ class Gerencia:
         except Exception as e:
             session.rollback()
             raise RuntimeError(f"Error al realizar la operación: {str(e)}") from e
-
-    def query_usuario(self, identificacion):
-        return (
-            session.query(UsuarioDatosPersonales)
-            .filter(
-                and_(
-                    UsuarioDatosPersonales.identificacion == identificacion,
-                    UsuarioDatosPersonales.estado == 1,
-                )
-            )
-            .first()
-        )
+        
+    def encontrar_id_usuario(self, identificacion):
+        gestor_excel = GestorExcel()
+        id_gerente_encargado = gestor_excel.obtener_id_usuario(identificacion) 
+        return id_gerente_encargado
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
         try:
             if len(novedades_de_gerencia) > 0:
                 # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
+                # session.commit()
                 return novedades_de_gerencia
 
             return "No se han registrado datos"
@@ -422,6 +417,7 @@ class Gerencia:
         try:
             if len(actualizacion_gerencia) > 0  :
                 # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                # session.commit()
                 return actualizacion_gerencia
 
             return "No se han actualizado datos"

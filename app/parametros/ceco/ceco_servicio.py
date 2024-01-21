@@ -267,6 +267,7 @@ class Ceco:
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
             session.bulk_insert_mappings(ProyectoCeco, novedades_unidad_organizativa)
+            session.commit()
             return novedades_unidad_organizativa
 
         return "No se han registrado datos"
@@ -274,6 +275,7 @@ class Ceco:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return actualizacion_gerencia_unidad_organizativa
 
         return "No se han actualizado datos"

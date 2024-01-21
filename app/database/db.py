@@ -18,7 +18,7 @@ try:
         pool_recycle=3600
     )
 
-    Session = sessionmaker(bind=engine, autoflush=True, autocommit=False)  # Cambiado a autocommit=False
+    Session = sessionmaker(bind=engine, autoflush=True, autocommit=False)  
     session = Session()
     Base = declarative_base()
     

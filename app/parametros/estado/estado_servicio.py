@@ -239,21 +239,15 @@ class Estado:
     def insertar_informacion(self, novedades_unidad_organizativa):
         if len(novedades_unidad_organizativa) > 0:
             # session.bulk_insert_mappings(ProyectoEstado, informacion_unidad_gerencia)
-            # session.flush()
-            # nuevos = session.new
-            
-            # print("Entidades nuevas:", nuevos)
+            # session.commit()
             
             return novedades_unidad_organizativa
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            # informacion_unidad_gerencia = self.procesar_datos_minuscula(actualizacion_gerencia_unidad_organizativa)
-            # session.bulk_update_mappings(ProyectoEstado, informacion_unidad_gerencia)
-            # session.flush()
-            # modificaciones = session.dirty
-            # print("Entidades modificadas:", modificaciones)
+            # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
+            # session.commit()
             
             return actualizacion_gerencia_unidad_organizativa
         return "No se han actualizado datos"

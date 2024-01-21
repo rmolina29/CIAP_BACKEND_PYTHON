@@ -7,24 +7,21 @@ from sqlalchemy.orm import relationship
 
 
 class UsuarioAuth(Base):
-    
     __tablename__ = "usuario_auth"
 
-    id = Column(Integer, primary_key=True, autoincrement = True)
-    estado = Column(
-        TINYINT(unsigned=True), default=1
-    ) 
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    estado = Column(TINYINT(unsigned=True), default=1)
     
-    # usuario_datos_personales = relationship("UsuarioDatosPersonales",ForeignKey('usuario_auth.id'), back_populates="usuario_datos_personales")
+    # Corrige la relación bidireccional
+    usuario_datos_personales = relationship("UsuarioDatosPersonales", back_populates="usuario_auth")
 
-    def __init__(self, id,estado):
+    def __init__(self, id, estado):
         self.id = id
         self.estado = estado
-
     
     def to_dict(self):
         return {
             "id": self.id,
-            "estado":self.estado
+            "estado": self.estado
         }
 
