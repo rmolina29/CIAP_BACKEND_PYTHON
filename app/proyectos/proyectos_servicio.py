@@ -33,7 +33,45 @@ class Proyectos:
     def comparacion_existe_datos(self,obtener_proyectos_existentes)->bool:
         return len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
     
-      
+    
+    def obtener_estados_proyectos(self):
+        return {
+            "proyecto_responsable_no_existe": self.obtener_exepcion_responsable_no_existe()['respuesta'],
+            "proyectos_unidad_administrativas": self.proyectos_unidad_excepcion()['respuesta'],
+            "proyectos_estado_no_existe": self.estado_proyecto_no_existe()['respuesta'],
+            "proyectos_cliente_no_existe": self.cliente_no_existe()['respuesta'],
+            "proyectos_invalidos": self.id_proyectos_invalidos()['respuesta'],
+            "fecha_invalidas": self.obtener_fechas_invalidas()['respuesta'],
+            "monto_invalidas": self.obtener_montos_invalidas()['respuesta'],
+            "proyecto_filtro_nit_invalido": self.validacion_informacion_identificacion()['nit_invalido'],
+            "proyectos_duplicadas": self.__proyectos_excel_duplicada
+        }
+    
+    
+    def proceso_sacar_estado(self):
+        lista_insert = self.obtener_proyectos_registro()['estado']
+        gerencia_update = self.obtener_proyectos_actualizacion()['estado']
+        estado_cambios = self.obtener_no_sufrieron_cambios()['estado']
+        proyecto_responsable_no_existe =  self.obtener_exepcion_responsable_no_existe()['estado']
+        proyectos_unidad_administrativas = self.proyectos_unidad_excepcion()['estado']
+        proyectos_estado_no_existe = self.estado_proyecto_no_existe()['estado']
+        proyectos_cliente_no_existe = self.cliente_no_existe()['estado']
+        proyectos_invalidos = self.id_proyectos_invalidos()['estado']
+        fecha_invalida = self.obtener_fechas_invalidas()['estado']
+        monto_invalidas = self.obtener_montos_invalidas()['estado']
+            
+        # Crear un conjunto con todos los valores de estado
+        estados = {lista_insert,gerencia_update,estado_cambios,
+                   proyecto_responsable_no_existe, proyectos_unidad_administrativas, 
+                   proyectos_estado_no_existe,
+                   proyectos_cliente_no_existe, 
+                   proyectos_invalidos, fecha_invalida,monto_invalidas}
+
+            # Filtrar valores diferentes de 0 y eliminar duplicados
+        estados_filtrados = [estado for estado in estados if estado != 0]
+            
+        return estados_filtrados
+    
     def transacciones(self):
         
         lista_insert = self.obtener_proyectos_registro()
@@ -41,31 +79,22 @@ class Proyectos:
         
         transaccion_registro = self.insertar_inforacion(lista_insert)
         transaccion_actualizar = self.actualizar_informacion(gerencia_update)
+        
+        id_estado = self.proceso_sacar_estado()
+        
         log_transaccion_registro_proyecto = {
                     "log_transaccion_excel": {
                         'Respuesta':[
                             {
                                 "proyecto_registradas": transaccion_registro,
                                 "proyectos_actualizadas": transaccion_actualizar,
-                                "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios(),
+                                "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios()['respuesta'],
                             }
                         ],
-                        'errores':{
-
-                            "proyecto_responsable_no_existe": self.obtener_exepcion_responsable_no_existe(),
-                            "proyectos_unidad_administrativas":self.proyectos_unidad_excepcion(),
-                            "proyectos_estado_no_existe": self.estado_proyecto_no_existe(),
-                            "proyectos_cliente_no_existe": self.cliente_no_existe(),
-                            "proyectos_invalidos":self.id_proyectos_invalidos(),
-                            "fecha_invalidas":self.obtener_fechas_invalidas(),
-                            "monto_invalidas":self.obtener_montos_invalidas(),
-                            "proyecto_filtro_nit_invalido":self.validacion_informacion_identificacion()['nit_invalido'],
-                            "proyectos_duplicadas": self.__proyectos_excel_duplicada
-                        }
+                        'errores':self.obtener_estados_proyectos()
                     },
                     'estado':{
-
-                        'id':0
+                        'id':id_estado
                     }
                 }
         
@@ -242,10 +271,12 @@ class Proyectos:
             filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(resultado_filtro_actualizacion,df_obtener_proyectos_existentes,columnas_comparar)
             
             resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
-            # resultado_final = filtro_personalizado[~filtro_personalizado.isin(df_obtener_proyectos_existentes_v2.to_dict('list')).all(1)]
-            return resultado_final.to_dict(orient='records')
+            
+            actualizacion_proyectos = resultado_final.to_dict(orient='records')
+            
+            return {'respuesta':actualizacion_proyectos,'estado':2} if len(actualizacion_proyectos) > 0 else {'respuesta':actualizacion_proyectos,'estado':0}
         
-        return []  
+        return {'respuesta': [], 'estado': 0}  
     
     def obtener_proyectos_registro(self):
         
@@ -265,10 +296,12 @@ class Proyectos:
                         (x['ceco_id'] in set(df_obtener_proyectos_existentes_columnas_requeridas_subset['ceco_id'])) 
                     ), axis=1)
                 ]
-
-                return obtener_ceco_registro.to_dict(orient='records')
+                
+                obtner_respuesta_registro = obtener_ceco_registro.to_dict(orient='records')
+                
+                return {'respuesta':obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'estado':0}
         
-            return []
+            return {'respuesta': [], 'estado': 0}
  
     def obtener_no_sufrieron_cambios(self):
             validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes_por_estado)
@@ -293,15 +326,18 @@ class Proyectos:
                     on=columnas_requeridas
                 )
 
-                proyectos_sin_cambio = no_sufren_cambios[['contrato']].to_dict(orient='records')
+                proyectos_sin_cambio = no_sufren_cambios[['nombre','contrato']].to_dict(orient='records')
                 
-                proyectos_sin_cambios = [{
+                proyectos_sin_cambios = {
+                    'respuesta': [{
                     'sin_cambios':proyectos_sin_cambio,
                     'mensaje': f"se econtraron un total de {len(proyectos_sin_cambio)} proyectos sin cambios"
-                }]
-                
+                }],
+                    'estado':4
+                } if len(proyectos_sin_cambio) > 0 else {'respuesta':proyectos_sin_cambio,'estado':0}
+               
             else:
-                proyectos_sin_cambios = []
+                proyectos_sin_cambios = {'respuesta': [], 'estado': 0}
 
             return proyectos_sin_cambios
     # metodos para obtener los valores de las validaciones
@@ -329,41 +365,43 @@ class Proyectos:
 
     
     def atrapar_una_excepcion(self,llave:str,mensaje:str):
+        
         df_proyectos = pd.DataFrame(self.__proyectos)
+        respuesta_default = {'respuesta': [], 'estado': 0}
         
         if df_proyectos.empty:
-            return []
+            return  respuesta_default
         
         # Verificar si hay algún valor igual a 0 en la columna 'ceco_id'
         no_existen = (df_proyectos[llave] == 0).any()
         
         if not no_existen:
-            return []
+            return  respuesta_default
         
-        obtener_excepcion = df_proyectos[df_proyectos[llave] == 0][['contrato']].to_dict(orient='records')
+        obtener_excepcion = df_proyectos[df_proyectos[llave] == 0][['proyecto_id_erp']].to_dict(orient='records')
         
         if len(obtener_excepcion) == 0:
-            return []
+            return  respuesta_default
         
-        return {'exepcion': obtener_excepcion, 'mensaje': mensaje}
+        return {'respuesta':  {'exepcion':obtener_excepcion, 'mensaje':mensaje},'estado':3}
     
     def atrapar_excepciones(self,llave_inicial,llave_final,mensaje):
         df_proyectos = pd.DataFrame(self.__proyectos)
         
         if df_proyectos.empty:
-              return []
+              return {'respuesta': [],'estado': 0}
           
         filtro_personalizado = df_proyectos[
                 (df_proyectos[[llave_inicial, llave_final]] == 0).any(axis=1)
             ]
           
-        obtener_monto = filtro_personalizado[['contrato']].to_dict(orient='records')
+        obtener_monto = filtro_personalizado[['proyecto_id_erp']].to_dict(orient='records')
 
           
         if len(obtener_monto) == 0:
-              return []
+              return {'respuesta': [],'estado': 0}
           
-        return {'exepcion':obtener_monto, 'mensaje':mensaje}
+        return {'respuesta':  {'exepcion':obtener_monto, 'mensaje':mensaje},'estado':3}
     
     def obtener_montos_invalidas(self):
         obtener_excepcion_fechas = self.atrapar_excepciones('valor_inicial','valor_final','Por favor,realizar verificacion de los montos de valor inicial y final sean superior a 0.')
@@ -411,6 +449,7 @@ class Proyectos:
         monto = self.obtener_valores_proyectos(proyecto)
 
         return {
+            "proyecto_id_erp":proyecto['ceco_id'],
             "ceco_id":self.obtener_id_entidad(proyecto,'ceco'),
             "nombre": proyecto["nombre"],
             "objeto":proyecto["objeto"],
@@ -496,11 +535,12 @@ class Proyectos:
     # metodos para consultas o para las operaciones de la base de datos
     def insertar_inforacion(self, proyectos_nuevos: List):
         try:
-            num_proyectos = len(proyectos_nuevos)
+            num_proyectos = len(proyectos_nuevos['respuesta'])
             if num_proyectos > 0:
-                session.bulk_insert_mappings(ModeloProyectos, proyectos_nuevos)
-                session.commit()
+                # session.bulk_insert_mappings(ModeloProyectos, proyectos_nuevos)
+                # session.commit()
                 return f'Se han realizado un total de {num_proyectos} registros exitosos.'
+
 
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -510,11 +550,11 @@ class Proyectos:
 
     def actualizar_informacion(self, actualizar_proyectos):
         try:
-            num_proyectos = len(actualizar_proyectos)
+            num_proyectos = len(actualizar_proyectos['respuesta'])
             if num_proyectos > 0  :
-                 session.bulk_update_mappings(ModeloProyectos, actualizar_proyectos)
-                 session.commit()
-                 return f'Se han realizado un total de {num_proyectos} actualizaciones exitososas.'
+                #  session.bulk_update_mappings(ModeloProyectos, actualizar_proyectos)
+                #  session.commit()
+                return f'Se han realizado un total de {num_proyectos} actualizaciones exitososas.'
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
               print(f"Se produjo un error de SQLAlchemy: {e}")
