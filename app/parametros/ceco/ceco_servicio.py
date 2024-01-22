@@ -2,20 +2,21 @@ import pandas as pd
 from fastapi import  UploadFile
 from app.parametros.ceco.model.ceco_model import ProyectoCeco
 from app.database.db import session
-import numpy as np
 from sqlalchemy.exc import SQLAlchemyError
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 
 class Ceco:
     def __init__(self,file:UploadFile) -> None:
         self.__file = file
         self.__obtener_cecos_existente = self.obtener()
+        self.__obtener_cecos_existente_estado_activo = self.obtener_ceco_estado()
         estructuracion_datos_usuario_ceco = self.__proceso_de_informacion_estructuracion()
         self.__data_usuario_ceco = estructuracion_datos_usuario_ceco['resultado']
-        self.__duplicados = estructuracion_datos_usuario_ceco['duplicados']
+        self.__duplicados = estructuracion_datos_usuario_ceco
     
         
-    def validacion_existe_informacion(self)->bool:
-        return len(self.__data_usuario_ceco) > 0 or len(self.__obtener_cecos_existente) > 0
+    def validacion_existe_informacion(self,obtener_ceco_existentes)->bool:
+        return len(self.__data_usuario_ceco) > 0 and len(obtener_ceco_existentes) > 0
     
     def proceso_sacar_estado(self):
             
@@ -34,13 +35,12 @@ class Ceco:
         
     def transacciones(self):
         try:
-            if self.validacion_existe_informacion():
+            if self.validacion_existe_informacion(self.__obtener_cecos_existente_estado_activo):
                 registro_de_cecos = self.ceco_nuevos()['respuesta']
                 actualizacion_cecos = self.actualizar_ceco_filtro()['respuesta']
-                
                 log_transaccion_registro = self.insertar_informacion(registro_de_cecos)
                 log_transaccion_actualizar = self.actualizar_informacion(actualizacion_cecos)
-        
+
                 estado_id = self.proceso_sacar_estado()
                 log_transaccion_registro_gerencia = {
                         "log_transaccion_excel": {
@@ -54,7 +54,7 @@ class Ceco:
                             ],
                             'errores':{
                                 'cecos_excepciones':self.obtener_excepciones_datos_unicos()['respuesta'],
-                                'duplicados':self.__duplicados
+                                'duplicados':self.__duplicados['duplicados']
                             }
                 
                         },
@@ -64,9 +64,11 @@ class Ceco:
                     }
                 
                 return log_transaccion_registro_gerencia
-            
-            return  { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__duplicados,'estado':3}                
+            return  {   
+                        'Mensaje':'No hay informacion para realizar el proceso',
+                        'duplicados':self.__duplicados['duplicados'],
+                        'estado':self.__duplicados['estado']
+                    }                
         except SQLAlchemyError as e:
             session.rollback()
             raise (e)
@@ -80,28 +82,31 @@ class Ceco:
         # Imprimir las columnas reales del DataFrame
         selected_columns = ["ID proyecto", "Nombre del proyecto"]
 
-        selected_data = df[selected_columns]
+        df_excel = df[selected_columns]
+        
+        if df_excel.empty:
+                return {'resultado': [], 'duplicados': [],'estado':0}
           # Cambiar los Nombres de las columnas
-        selected_data = selected_data.rename(
+        df_excel = df_excel.rename(
             columns={
                "ID proyecto": "ceco_id_erp", 
                 "Nombre del proyecto": "nombre"
             }
         )
         
-        selected_data["ceco_id_erp"] = selected_data["ceco_id_erp"]
-        selected_data["nombre"] = selected_data["nombre"]
+        df_excel["ceco_id_erp"] = df_excel["ceco_id_erp"].str.strip()
+        df_excel["nombre"] = df_excel["nombre"].str.strip()
         
         # uso de eliminacion de espacios en blancos
-        df_filtered = selected_data.dropna()
+        df_filtered = df_excel.dropna()
         
         duplicados_ceco_erp = df_filtered.duplicated(subset='ceco_id_erp', keep=False)
         duplicados_ceco = df_filtered.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        datos_excel_ceco = df_filtered[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
         duplicados = df_filtered[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
-        
-        return {'resultado':resultado,'duplicados':duplicados}
+
+        return {'resultado':datos_excel_ceco,'duplicados':duplicados, 'estado':3 if len(duplicados) > 0 else 0}
     
     
     def obtener(self):
@@ -110,8 +115,14 @@ class Ceco:
         ceco = [ceco.to_dict() for ceco in informacion_ceco]
         return ceco
     
+    def obtener_ceco_estado(self,estado = 1):
+        informacion_ceco = session.query(ProyectoCeco).filter_by(estado = estado).all()
+        # Convertir lista de objetos a lista de diccionarios
+        ceco = [ceco.to_dict() for ceco in informacion_ceco]
+        return ceco
+    
     def ceco_nuevos(self):
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_cecos_existente)
         if validacion:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
             df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
@@ -137,10 +148,10 @@ class Ceco:
         return  {'respuesta':registro_cecos,'estado':1} if len(registro_cecos) > 0 else {'respuesta':registro_cecos,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_cecos_existente_estado_activo)
         if validacion:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
-            df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
+            df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente_estado_activo)
             
             df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
             
@@ -162,11 +173,11 @@ class Ceco:
         return {'respuesta':cecos_sin_cambios,'estado':3} if len(cecos_sin_cambios) > 0 else {'respuesta':cecos_sin_cambios,'estado':0}
     
     def actualizar_ceco_filtro(self):
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_cecos_existente_estado_activo)
         
         if validacion:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
-            df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente)
+            df_obtener_ceco_existentes = pd.DataFrame(self.__obtener_cecos_existente_estado_activo)
             
             df_ceco["ceco_id_erp"] = df_ceco["ceco_id_erp"]
             df_obtener_ceco_existentes["ceco_id_erp"] = df_obtener_ceco_existentes["ceco_id_erp"]
@@ -214,7 +225,7 @@ class Ceco:
     # y le devuelvo la informacion
     def obtener_excepciones_datos_unicos(self):
         
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_cecos_existente)
         
         if validacion:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
@@ -242,46 +253,36 @@ class Ceco:
                 return {'respuesta':[],'estado':0}
             
             actualizar_ = self.actualizar_ceco_filtro()['respuesta']
-            
-            if len(actualizar_) > 0:
-                df_ceco_filtro = pd.DataFrame(actualizar_)
-                df_filtrado = resultado[~resultado[['nombre','ceco_id_erp']].isin(df_ceco_filtro[['nombre','ceco_id_erp']].to_dict('list')).all(axis=1)]
-                filtro_ceco =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_ceco,'estado':3} if len(filtro_ceco) > 0 else {'respuesta':filtro_ceco,'estado':0}
-            
-                        
-            obtener_excepciones = resultado.to_dict(orient='records')
             ceco_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
+            columnas_ceco_filtro = ['nombre','ceco_id_erp']
             
-            if len(ceco_filtro) != 0:
-                df_ceco = pd.DataFrame(ceco_filtro)
-                df_filtrado = resultado[~resultado[['nombre','ceco_id_erp']].isin(df_ceco[['nombre','ceco_id_erp']].to_dict('list')).all(axis=1)]
-                filtro_ceco_actualizacion =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_ceco_actualizacion,'estado':3} if len(filtro_ceco_actualizacion) > 0 else {'respuesta':filtro_ceco_actualizacion,'estado':0}
+            gestor_proceso_excel = GestorExcel(columnas_ceco_filtro)
+            
+            filtrar_las_actualizaciones = gestor_proceso_excel.filtro_de_excpeciones(ceco_filtro,actualizar_,resultado)
+            
+            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado']:
+                return {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado' : 3 if len(filtrar_las_actualizaciones['respuesta'])>0 else 0}
       
+            obtener_excepciones = resultado.to_dict(orient='records')
         else:
             obtener_excepciones = []
             
-        return  {'respuesta':obtener_excepciones,'estado':4} if len(obtener_excepciones) > 0 else {'respuesta':obtener_excepciones,'estado':0}
+        return  {'respuesta':obtener_excepciones,'estado':3} if len(obtener_excepciones) > 0 else {'respuesta':obtener_excepciones,'estado':0}
     
     def insertar_informacion(self, novedades_unidad_organizativa):
+        cantidad_de_registros = len(novedades_unidad_organizativa)
         if len(novedades_unidad_organizativa) > 0:
-            session.bulk_insert_mappings(ProyectoCeco, novedades_unidad_organizativa)
-            session.commit()
-            return novedades_unidad_organizativa
-
+            # session.bulk_insert_mappings(ProyectoCeco, novedades_unidad_organizativa)
+            # session.commit()
+            return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto ceco exitosamente.'}
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
-        if len(actualizacion_gerencia_unidad_organizativa) > 0:
-            session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
-            session.commit()
-            return actualizacion_gerencia_unidad_organizativa
-
+        cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
+        if cantidad_de_actualizaciones > 0:
+            
+            # session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
+            # session.commit()
+            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosos.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
     
-    
-    # def procesar_datos_minuscula(self,datos):
-    #     df = pd.DataFrame(datos)
-    #     df[['ceco_id_erp', 'nombre']] = df[['ceco_id_erp', 'nombre']].apply(lambda x: x.str.lower())
-    #     return df.to_dict(orient='records')

@@ -1,5 +1,4 @@
 from typing import List
-from app.parametros.direccion.esquema.proyecto_unidad_organizativa import Archivo
 from app.parametros.direccion.model.proyecto_unidad_organizativa import ProyectoUnidadOrganizativa
 from app.database.db import session
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
@@ -12,7 +11,7 @@ class Direccion:
     def __init__(self,file:UploadFile) -> None:
         self.__file = file
         resultado_estructuracion = self.__proceso_de_informacion_estructuracion()
-        self.__informacion_excel_duplicada = resultado_estructuracion['duplicados']
+        self.__informacion_excel_duplicada = resultado_estructuracion
         self.__direcion_excel = resultado_estructuracion['resultado']
         self.__obtener_unidad_organizativa_existentes = self.obtener_direccion()
         self.__unidad_organizativa = self.proceso_informacion_con_id_gerencia()
@@ -37,9 +36,8 @@ class Direccion:
             }
         )
         
-        
-        selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"]
-        selected_data["nombre"] = selected_data["nombre"]
+        selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"].str.strip()
+        selected_data["nombre"] = selected_data["nombre"].str.strip()
         
         df_filtered = selected_data.dropna()
 
@@ -50,7 +48,7 @@ class Direccion:
         resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
-        return {'resultado':resultado,'duplicados':duplicados}
+        return {'resultado':resultado,'duplicados':duplicados,'estado': 3 if len(duplicados) > 0 else 0}
     
     # class
     def proceso_sacar_estado(self):
@@ -61,9 +59,10 @@ class Direccion:
             sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")['estado']
             excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['estado']
             gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")['estado']
+            estado_duplicado = self.__informacion_excel_duplicada['estado']
 
             # Crear un conjunto con todos los valores de estado
-            estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, gerencia_existente}
+            estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, gerencia_existente,estado_duplicado}
 
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
@@ -93,8 +92,6 @@ class Direccion:
                 
                 log_transaccion_actualizar = self.actualizar_informacion(unidad_organizativa_update)
                 
-           
-                
                 estado_id = self.proceso_sacar_estado()
                 
                 log_transaccion_registro_gerencia = {
@@ -108,7 +105,7 @@ class Direccion:
                             ],
                             'errores':{
                                 "unidad_organizativa_id_no_existe": excepciones_id_usuario,
-                                "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada,
+                                "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada['duplicados'],
                                 "gerencias_existentes":gerencia_existente
                             }
                 
@@ -121,7 +118,7 @@ class Direccion:
                 return log_transaccion_registro_gerencia
             
             return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__informacion_excel_duplicada,'estado':5}
+                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':3}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -133,10 +130,17 @@ class Direccion:
     # class
     def obtener_direccion(self):
             informacion_direccion = session.query(ProyectoUnidadOrganizativa).all()
-            gerencia_data = [gerencia.to_dict() for gerencia in informacion_direccion]
-            return gerencia_data
+            direccion_datos = [direccion.to_dict() for direccion in informacion_direccion]
+            return direccion_datos
         
-        
+    
+    
+    def obtener_por_estado_unidad_organizativa(self, estado=1):
+        informacion_direccion = session.query(ProyectoUnidadOrganizativa).filter_by(estado=estado).all()
+        # Convertir lista de objetos a lista de diccionarios
+        direccion_datos = [direccion.to_dict() for direccion in informacion_direccion]
+        return direccion_datos
+    
     def comparacion_unidad_organizativa(self):
         try:
             (
@@ -183,7 +187,7 @@ class Direccion:
         else:
             id_gerencias_none =[] 
         
-        return {'respuesta':id_gerencias_none,'estado':4} if len(id_gerencias_none) > 0 else {'respuesta':id_gerencias_none,'estado':0}
+        return {'respuesta':id_gerencias_none,'estado':3} if len(id_gerencias_none) > 0 else {'respuesta':id_gerencias_none,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
         
@@ -269,19 +273,25 @@ class Direccion:
 
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
-        
+    
+    
+    def obtener_existe_contenido(self)->bool:
+        return len(self.__unidad_organizativa) > 0 and len(self.__obtener_unidad_organizativa_existentes) > 0
+    
     def obtener_unidad_organizativa_actualizacion(self):
 
-        if self.__validacion_contenido:
+        unidad_organizativa_activos = self.obtener_existe_contenido()
+        
+        if unidad_organizativa_activos:
             df_unidad_organizativa = pd.DataFrame(self.__unidad_organizativa)
-            df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.__obtener_unidad_organizativa_existentes)
+            df_obtener_unidad_organizativa_existentes = pd.DataFrame(self.obtener_por_estado_unidad_organizativa())
 
             df_unidad_organizativa['gerencia_id'] = df_unidad_organizativa['gerencia_id'].astype(int)
             
-            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre'].str.strip()
+            df_unidad_organizativa['nombre'] = df_unidad_organizativa['nombre']
             df_obtener_unidad_organizativa_existentes['nombre'] = df_obtener_unidad_organizativa_existentes['nombre']
             
-            df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp'].str.strip()
+            df_unidad_organizativa['unidad_organizativa_id_erp'] = df_unidad_organizativa['unidad_organizativa_id_erp']
             df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp'] = df_obtener_unidad_organizativa_existentes['unidad_organizativa_id_erp']
             
             resultado = pd.merge(
@@ -438,14 +448,15 @@ class Direccion:
             actualizar_ = self.obtener_unidad_organizativa_actualizacion()['respuesta']
       
             filtrar_las_actualizaciones = self.filtro_de_excepciones(direccion_filtro_no_sufrieron_cambios,actualizar_,direcciones_existentes)
+            respuesta_filtro = filtrar_las_actualizaciones['respuesta']
             
-            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado'] == 3:
-                return  {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado': 3}
+            if len(respuesta_filtro) > 0 or filtrar_las_actualizaciones['estado'] == 3:
+                return  {'respuesta': respuesta_filtro, 'estado': 3 if len(respuesta_filtro) > 0 else 0}
             
             obtener_excepcion = direcciones_existentes.to_dict(orient='records')
         else:
             obtener_excepcion = []
-        return {'respuesta':obtener_excepcion,'estado':4} if len(obtener_excepcion) > 0 else {'respuesta':obtener_excepcion,'estado':0}
+        return {'respuesta':obtener_excepcion,'estado':3} if len(obtener_excepcion) > 0 else {'respuesta':obtener_excepcion,'estado':0}
     
     
     

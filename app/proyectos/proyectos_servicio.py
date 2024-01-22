@@ -23,7 +23,7 @@ class Proyectos:
         # y esta data se realizara la comparacion contra los que tiene para actualizar
         self.proyectos_existentes_por_estado = self.obtener_por_estado_proyectos()
         resultado_estructuracion = self.__proceso_de_proyectos_estructuracion()
-        self.__proyectos_excel_duplicada = resultado_estructuracion['duplicados']
+        self.__proyectos_excel_duplicada = resultado_estructuracion
         self.__proyectos_excel = resultado_estructuracion['resultado']
         # data procesada contiene los datos en 0 de las id que no existen en otras tablas
         self.__proyectos = self.inforamcion_proyectos_procesada()
@@ -34,7 +34,7 @@ class Proyectos:
         return len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
     
     
-    def obtener_estados_proyectos(self):
+    def obtener_excepciones_proyectos(self):
         return {
             "proyecto_responsable_no_existe": self.obtener_exepcion_responsable_no_existe()['respuesta'],
             "proyectos_unidad_administrativas": self.proyectos_unidad_excepcion()['respuesta'],
@@ -44,7 +44,7 @@ class Proyectos:
             "fecha_invalidas": self.obtener_fechas_invalidas()['respuesta'],
             "monto_invalidas": self.obtener_montos_invalidas()['respuesta'],
             "proyecto_filtro_nit_invalido": self.validacion_informacion_identificacion()['nit_invalido'],
-            "proyectos_duplicadas": self.__proyectos_excel_duplicada
+            "proyectos_duplicadas": self.__proyectos_excel_duplicada['duplicados']
         }
     
     
@@ -59,13 +59,17 @@ class Proyectos:
         proyectos_invalidos = self.id_proyectos_invalidos()['estado']
         fecha_invalida = self.obtener_fechas_invalidas()['estado']
         monto_invalidas = self.obtener_montos_invalidas()['estado']
-            
+        nit_invalido = self.validacion_informacion_identificacion()['estado']
+        proyectos_duplicados = self.__proyectos_excel_duplicada['estado']
+        
         # Crear un conjunto con todos los valores de estado
         estados = {lista_insert,gerencia_update,estado_cambios,
                    proyecto_responsable_no_existe, proyectos_unidad_administrativas, 
                    proyectos_estado_no_existe,
                    proyectos_cliente_no_existe, 
-                   proyectos_invalidos, fecha_invalida,monto_invalidas}
+                   proyectos_invalidos, fecha_invalida,monto_invalidas,nit_invalido,
+                   proyectos_duplicados
+                   }
 
             # Filtrar valores diferentes de 0 y eliminar duplicados
         estados_filtrados = [estado for estado in estados if estado != 0]
@@ -91,7 +95,7 @@ class Proyectos:
                                 "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios()['respuesta'],
                             }
                         ],
-                        'errores':self.obtener_estados_proyectos()
+                        'errores':self.obtener_excepciones_proyectos()
                     },
                     'estado':{
                         'id':id_estado
@@ -147,7 +151,7 @@ class Proyectos:
         df_excel = df[selected_columns]
         
         if df_excel.empty:
-                return {'resultado': [], 'duplicados': []}
+                return {'resultado': [], 'duplicados': [],'estado':0}
 
         # Cambiar los nombres de las columnas
         df_excel = df_excel.rename(
@@ -187,16 +191,16 @@ class Proyectos:
         duplicated = pd.DataFrame(duplicados)
         
         if duplicated.isnull().any(axis=1).any():
-            lista_gerencias = []
+            proyectos_lista = []
         else:
-            lista_gerencias = [
+            proyectos_lista = [
                 {
                     'ceco_id': item['ceco_id'],
                 }
                 for item in duplicados
             ]
         
-        return {'resultado':resultado,'duplicados':lista_gerencias}
+        return {'resultado':resultado,'duplicados':proyectos_lista,'estado':3 if len(proyectos_lista) > 0 else 0}
     
     
     def validacion_informacion_identificacion(self):
@@ -215,7 +219,7 @@ class Proyectos:
                         'id_proyecto':item['ceco_id']
                         })
                     
-            return {'nit_invalido': proyecto_identificacion_incorrecta, 'proyecto_filtro_datos': proyecto_filtro_datos,'estado':0}
+            return {'nit_invalido': proyecto_identificacion_incorrecta , 'proyecto_filtro_datos': proyecto_filtro_datos,'estado':3 if len(proyecto_identificacion_incorrecta) > 0 else 0}
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
@@ -258,23 +262,23 @@ class Proyectos:
                 on=['ceco_id'],
                 how ='inner'
             )
-            
-            resultado_filtro_actualizacion = filtro_actualizacion[['id', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id_x',
+            resultado_filtro_actualizacion = filtro_actualizacion[['id','proyecto_id_erp', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id_x',
                                                        'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
                                                        'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
                                                        'valor_inicial_x','valor_final_x']].rename(
                 columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
             )
                                                        
-            columnas_comparar = ['id', 'nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']                                          
+            columnas_comparar = ['id','nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']                                          
             
             filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(resultado_filtro_actualizacion,df_obtener_proyectos_existentes,columnas_comparar)
             
             resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
             
             actualizacion_proyectos = resultado_final.to_dict(orient='records')
+            actualizacion_proyectos_log = resultado_final[['nombre','contrato']].to_dict(orient='records')
             
-            return {'respuesta':actualizacion_proyectos,'estado':2} if len(actualizacion_proyectos) > 0 else {'respuesta':actualizacion_proyectos,'estado':0}
+            return {'respuesta':resultado_final,'log':actualizacion_proyectos_log,'estado':2} if len(actualizacion_proyectos) > 0 else {'respuesta':actualizacion_proyectos,'estado':0}
         
         return {'respuesta': [], 'estado': 0}  
     
@@ -298,8 +302,9 @@ class Proyectos:
                 ]
                 
                 obtner_respuesta_registro = obtener_ceco_registro.to_dict(orient='records')
+                log_obtner_respuesta_registro = obtener_ceco_registro[['nombre','contrato']].to_dict(orient='records')
                 
-                return {'respuesta':obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'estado':0}
+                return {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'estado':0}
         
             return {'respuesta': [], 'estado': 0}
  
@@ -327,14 +332,15 @@ class Proyectos:
                 )
 
                 proyectos_sin_cambio = no_sufren_cambios[['nombre','contrato']].to_dict(orient='records')
+                conteo_proyectos_sin_cambios = len(proyectos_sin_cambio)
                 
                 proyectos_sin_cambios = {
                     'respuesta': [{
                     'sin_cambios':proyectos_sin_cambio,
-                    'mensaje': f"se econtraron un total de {len(proyectos_sin_cambio)} proyectos sin cambios"
+                    'mensaje': f"Se econtraron un total de {conteo_proyectos_sin_cambios} proyectos sin cambios" if conteo_proyectos_sin_cambios > 1 else f"Se encontro ({conteo_proyectos_sin_cambios}) un proyecto sin cambios"
                 }],
                     'estado':4
-                } if len(proyectos_sin_cambio) > 0 else {'respuesta':proyectos_sin_cambio,'estado':0}
+                } if conteo_proyectos_sin_cambios > 0 else {'respuesta':proyectos_sin_cambio,'estado':0}
                
             else:
                 proyectos_sin_cambios = {'respuesta': [], 'estado': 0}
@@ -535,29 +541,45 @@ class Proyectos:
     # metodos para consultas o para las operaciones de la base de datos
     def insertar_inforacion(self, proyectos_nuevos: List):
         try:
-            num_proyectos = len(proyectos_nuevos['respuesta'])
+            registros_proyectos = proyectos_nuevos['respuesta']
+            num_proyectos = len(registros_proyectos)
+            
             if num_proyectos > 0:
-                # session.bulk_insert_mappings(ModeloProyectos, proyectos_nuevos)
+                proyectos_log = proyectos_nuevos['log']
+                # session.bulk_insert_mappings(ModeloProyectos, registros_proyectos)
                 # session.commit()
-                return f'Se han realizado un total de {num_proyectos} registros exitosos.'
-
+                return {    
+                        'registro':proyectos_log,
+                        'mensaje': f'Se han realizado la carga de {num_proyectos} registros exitosos.' if num_proyectos > 1 else  f'Se ha cargado un ({num_proyectos}) registro exitoso.'
+                        }
 
             return "No se han registrado datos"
         except SQLAlchemyError as e:
-              print(f"Se produjo un error de SQLAlchemy: {e}")
-            #   return e
+              print(f"Se produjo un error de SQLAlchemy: {str(e)}")
+              return {'problema':'Lo sentimos hemos tenido un problema, estamos trabajando en ello.',
+                        'err':str(e)}
         
 
     def actualizar_informacion(self, actualizar_proyectos):
         try:
-            num_proyectos = len(actualizar_proyectos['respuesta'])
+            
+            actualizacion_proyectos_respuesta = actualizar_proyectos['respuesta']
+            num_proyectos = len(actualizacion_proyectos_respuesta)
+            
             if num_proyectos > 0  :
-                #  session.bulk_update_mappings(ModeloProyectos, actualizar_proyectos)
+                actualizacion_proyectos = actualizar_proyectos['log']
+                #  session.bulk_update_mappings(ModeloProyectos, actualizacion_proyectos_respuesta)
                 #  session.commit()
-                return f'Se han realizado un total de {num_proyectos} actualizaciones exitososas.'
+                return {    
+                        'actualizacion':actualizacion_proyectos,
+                        'mensaje':f'Se han realizado un total de {num_proyectos} actualizaciones exitosas.' if num_proyectos > 1 else f'Se ha realizado {num_proyectos} actualización exitosa.'
+                        }
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
-              print(f"Se produjo un error de SQLAlchemy: {e}")
+              print(f"Se produjo un error de SQLAlchemy: {str(e)}")
+              return {'problema':'Lo sentimos hemos tenido un problema, estamos trabajando en ello.',
+                        'err':str(e)
+                        }
     
     def encontrar_id_usuario(self, identificacion):
         gestor_excel = GestorExcel()
@@ -616,13 +638,3 @@ class Proyectos:
                 ).first()
            )
         
-        #      return (
-        #     session.query(UsuarioDatosPersonales)
-        #     .filter(
-        #         and_(
-        #             UsuarioDatosPersonales.identificacion == identificacion,
-        #             UsuarioDatosPersonales.estado == 1,
-        #         )
-        #     )
-        #     .first()
-        # )

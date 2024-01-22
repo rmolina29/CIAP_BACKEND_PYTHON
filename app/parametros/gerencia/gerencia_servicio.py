@@ -21,6 +21,7 @@ class Gerencia:
         # gerencia que me envia el usuario a traves del excel
         self.__gerencia = self.gerencia_usuario_procesada()
         self.__validacion_contenido = len(self.__gerencia) > 0 and len(self.__obtener_gerencia_existente) > 0
+        self.__validacion_contenido_estado = len(self.__gerencia) > 0 and len(self.__obtener_gerencia_existente_estado) > 0
     
     # class
     def __proceso_de_informacion_estructuracion(self):
@@ -45,8 +46,8 @@ class Gerencia:
             }
         )
         
-        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"]
-        df_excel["nombre"] = df_excel["nombre"]
+        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].str.strip()
+        df_excel["nombre"] = df_excel["nombre"].str.strip()
         
         df_filtered = df_excel.dropna()
 
@@ -78,7 +79,7 @@ class Gerencia:
                     gerencia_filtrada_excel.append(item)
                 else:
                     gerencia_log.append(item)
-            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado':0}
+            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_filtrada_excel) > 0 else 0}
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
@@ -103,21 +104,15 @@ class Gerencia:
             
             lista_insert = novedades_de_gerencia.get("insercion_datos")['estado']
             
-            
             gerencia_update = novedades_de_gerencia.get("actualizacion_datos")['estado']
-            
             
             sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")['estado']
             
-            
             excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")['estado']
-            
             
             excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")['estado']
             
-            
             log_nit_invalido = self.validacion_informacion_gerencia_nit()['estado']
-            
             
             # Crear un conjunto con todos los valores de estado
             estados = {lista_insert, gerencia_update, sin_cambios, excepciones_id_usuario, excepciones_gerencia, log_nit_invalido}
@@ -268,17 +263,17 @@ class Gerencia:
     # class
     def obtener_gerencias_actualizacion(self):
         
-        if self.__validacion_contenido:
+        if self.__validacion_contenido_estado:
             df_gerencia = pd.DataFrame(self.__gerencia)
             df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente_estado)
             
             df_gerencia['responsable_id'] = df_gerencia['responsable_id'].astype(int)
             
-            df_gerencia['nombre'] = df_gerencia['nombre'].str.strip()
+            df_gerencia['nombre'] = df_gerencia['nombre']
 
             df_obtener_unidad_de_gerencia['nombre'] = df_obtener_unidad_de_gerencia['nombre']
             
-            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp'].str.strip()
+            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp']
             df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp']
             
             resultado = pd.merge(
@@ -472,10 +467,10 @@ class Gerencia:
             df_gerencia = pd.DataFrame(self.__gerencia)
             df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
             
-            df_gerencia['nombre'] = df_gerencia['nombre'].str.strip()
+            df_gerencia['nombre'] = df_gerencia['nombre']
             df_obtener_unidad_de_gerencia['nombre'] = df_obtener_unidad_de_gerencia['nombre']
             
-            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp'].str.strip()
+            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp']
             df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp']
             
             
@@ -497,10 +492,10 @@ class Gerencia:
             
             
             filtrar_las_actualizaciones = self.filtro_de_excepciones(gerencia_filtro,actualizar_,gerencias_existentes)
+            respuesta_filtro = filtrar_las_actualizaciones['respuesta']
             
-            if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado'] == 3:
-         
-                return  {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado': 3}
+            if len(respuesta_filtro) > 0 or filtrar_las_actualizaciones['estado'] == 3:
+                return  {'respuesta': respuesta_filtro, 'estado': 3 if len(respuesta_filtro) > 0 else 0}
             
             obtener_excepcion = gerencias_existentes.to_dict(orient='records')
         else:
