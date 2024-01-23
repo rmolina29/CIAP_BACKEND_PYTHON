@@ -2,6 +2,7 @@
 from fastapi import  UploadFile
 import pandas as pd
 from app.database.db import session
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.estado.model.estado_model import ProyectoEstado
 
 
@@ -10,9 +11,10 @@ class Estado:
         self.__file = file
         # data para la comparacion de informacion sacandola de la base de datos
         self.__obtener_estados_existente = self.obtener()
+        self.__obtener_estados_existente_activos = self.obtener_por_estado()
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
         self.__estados = estados_usuario_excel['resultado']
-        self.__estados_duplicados = estados_usuario_excel['duplicados']
+        self.__estados_duplicados = estados_usuario_excel
         
     
     def proceso_sacar_estado(self):
@@ -32,7 +34,7 @@ class Estado:
             return estados_filtrados
     
     def transacciones(self):
-        if self.validacion_existe_informacion():
+        if self.validacion_existe_informacion(self.__obtener_estados_existente):
             registro_estados = self.estados_nuevos()['respuesta']
             actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
             estado_id = self.proceso_sacar_estado()
@@ -47,7 +49,7 @@ class Estado:
                                 }
                             ],
                             'errores':{
-                                'duplicados':self.__estados_duplicados,
+                                'duplicados':self.__estados_duplicados['duplicados'],
                                 'excpeciones':self.obtener_excepciones_datos_unicos_estado()['respuesta']
                             }
                 
@@ -59,8 +61,11 @@ class Estado:
             
             return log_transaccion_registro_gerencia
             
-        return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__estados_duplicados,'estado':3}  
+        return { 
+                    'Mensaje':'No hay informacion para realizar el proceso',
+                    'duplicados':self.__estados_duplicados['duplicados'],
+                    'estado':self.__estados_duplicados['estado']
+                }  
 
             
    
@@ -71,27 +76,28 @@ class Estado:
         # Imprimir las columnas reales del DataFrame
         selected_columns = ["ID Estado (ERP)", "Estado"]
 
-        selected_data = df[selected_columns]
+        df_excel = df[selected_columns]
         
           # Cambiar los nombres de las columnas
-        selected_data = selected_data.rename(
+        df_excel = df_excel.rename(
             columns={
                "ID Estado (ERP)": "estado_id_erp", 
                 "Estado": "descripcion" 
             }
         )
         
-        selected_data["estado_id_erp"] = selected_data["estado_id_erp"]
-        selected_data["descripcion"] = selected_data["descripcion"]
+        df_excel["estado_id_erp"] = df_excel["estado_id_erp"].str.strip()
+        df_excel["descripcion"] = df_excel["descripcion"].str.strip()
         
+        df_filtered = df_excel.dropna()
         
-        estado_duplicado = selected_data.duplicated(subset='estado_id_erp', keep=False)
-        duplicado_descripcion = selected_data.duplicated(subset='descripcion', keep=False)
+        estado_duplicado = df_filtered.duplicated(subset = 'estado_id_erp', keep=False)
+        duplicado_descripcion = df_filtered.duplicated(subset = 'descripcion', keep=False)
         # Filtrar DataFrame original
-        resultado = selected_data[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
-        duplicados = selected_data[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        resultado = df_filtered[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        duplicados = df_filtered[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
         
-        return {'resultado':resultado,'duplicados':duplicados}
+        return {'resultado':resultado,'duplicados':duplicados, 'estado':3 if len(duplicados) > 0 else 0}
     
     def obtener(self):
         estados = session.query(ProyectoEstado).all()
@@ -99,13 +105,19 @@ class Estado:
         estado = [estado.to_dict() for estado in estados ]
         return estado
     
+    def obtener_por_estado(self):
+        estados_activos = session.query(ProyectoEstado).filter_by(estado = 1).all()
+        # Convertir lista de objetos a lista de diccionarios
+        estado = [estado.to_dict() for estado in estados_activos ]
+        return estado
     
-    def validacion_existe_informacion(self)->bool:
-        return len(self.__estados) > 0 and len(self.__obtener_estados_existente)>0
+    
+    def validacion_existe_informacion(self,estado_existentes)->bool:
+        return len(self.__estados) > 0 and len(estado_existentes)>0
     
     def obtener_excepciones_datos_unicos_estado(self):
         
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_estados_existente)
         
         if validacion:
             df_estado = pd.DataFrame(self.__estados)
@@ -125,24 +137,27 @@ class Estado:
             
             if resultado.empty:
                 return {'respuesta':[],'estado':0}
-            
-            
-            obtener_excepciones_estado =  resultado.to_dict(orient='records')
+              
             
             filtro_actualizacion = self.filtro_estado_actualizar()['respuesta']
             estado_filtro_no_sufrieron_cambios = self.obtener_no_sufrieron_cambios()['respuesta']
             
-            filtro_de_excepciones_y_actualizaciones = self.filtro_de_excepciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)
+            columnas_ceco_filtro = ['descripcion','estado_id_erp']
+            
+            gestor_proceso_excel = GestorExcel(columnas_ceco_filtro)
+            
+            filtro_de_excepciones_y_actualizaciones = gestor_proceso_excel.filtro_de_excpeciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)
             if len(filtro_de_excepciones_y_actualizaciones['respuesta']) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
                 return  {'respuesta': filtro_de_excepciones_y_actualizaciones['respuesta'],'estado': filtro_de_excepciones_y_actualizaciones['estado']}
             
+            obtener_excepciones_estado =  resultado.to_dict(orient='records')
         else:
             obtener_excepciones_estado = []
         return  {'respuesta':obtener_excepciones_estado,'estado':3} if len(obtener_excepciones_estado) > 0 else {'respuesta':obtener_excepciones_estado,'estado':0}
     
     def estados_nuevos(self):
         
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_estados_existente)
         
         if validacion:
             df_estado = pd.DataFrame(self.__estados)
@@ -173,11 +188,11 @@ class Estado:
     
     def filtro_estado_actualizar(self):
         
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_estados_existente_activos)
         
         if validacion:
             df_estado = pd.DataFrame(self.__estados)
-            df_obtener_estados_existentes = pd.DataFrame(self.__obtener_estados_existente)
+            df_obtener_estados_existentes = pd.DataFrame(self.__obtener_estados_existente_activos)
             
             df_estado["estado_id_erp"] = df_estado["estado_id_erp"]
             df_obtener_estados_existentes["estado_id_erp"] = df_obtener_estados_existentes["estado_id_erp"]
@@ -216,7 +231,7 @@ class Estado:
         return {'respuesta':resultado_actualizacion,'estado':2} if len(resultado_actualizacion) > 0 else {'respuesta':resultado_actualizacion,'estado':0}
     
     def obtener_no_sufrieron_cambios(self):
-        validacion = self.validacion_existe_informacion()
+        validacion = self.validacion_existe_informacion(self.__obtener_estados_existente)
         if validacion:
             df_estados = pd.DataFrame(self.__estados)
             df_obtener_estados_existentes = pd.DataFrame(self.__obtener_estados_existente)
@@ -237,48 +252,21 @@ class Estado:
     
     
     def insertar_informacion(self, novedades_unidad_organizativa):
+        cantidad_de_registros = len(novedades_unidad_organizativa)
         if len(novedades_unidad_organizativa) > 0:
             # session.bulk_insert_mappings(ProyectoEstado, informacion_unidad_gerencia)
             # session.commit()
             
-            return novedades_unidad_organizativa
+            return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto Estado exitosamente.'}
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
+        cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if len(actualizacion_gerencia_unidad_organizativa) > 0:
             # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
             # session.commit()
             
-            return actualizacion_gerencia_unidad_organizativa
+            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosos.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
 
     
-    def filtro_de_excepciones(self,estado_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
-
-        if len(filtro_actualizacion) > 0 and len(estado_filtro) > 0:
-                    df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
-                    df_estado = pd.DataFrame(estado_filtro)
-                    
-                    df_filtrado = excepciones[
-                        ~excepciones[['descripcion','estado_id_erp']].isin(df_ceco_filtro[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1) &
-                        ~excepciones[['descripcion','estado_id_erp']].isin(df_estado[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)
-                    ]
-            
-                    filtro_combinado = df_filtrado.to_dict(orient='records')
-                    return {'respuesta': filtro_combinado, 'estado': 3} 
-            
-        elif len(filtro_actualizacion) > 0:
-                df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
-             
-                df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_ceco_filtro[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
-                filtro_ceco =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_ceco,'estado':3} 
-            
-            
-        elif len(estado_filtro) > 0:
-                df_estado = pd.DataFrame(estado_filtro)
-                df_filtrado = excepciones[~excepciones[['descripcion','estado_id_erp']].isin(df_estado[['descripcion','estado_id_erp']].to_dict('list')).all(axis=1)]
-                filtro_estado_actualizacion =  df_filtrado.to_dict(orient='records')
-                return {'respuesta':filtro_estado_actualizacion,'estado':3}
-        else:
-                return {'respuesta':filtro_estado_actualizacion,'estado':0}

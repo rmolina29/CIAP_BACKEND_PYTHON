@@ -13,7 +13,7 @@ class Gerencia:
     def __init__(self,file:UploadFile) -> None:
         self.__file = file
         resultado_estructuracion = self.__proceso_de_informacion_estructuracion()
-        self.__informacion_excel_duplicada = resultado_estructuracion['duplicados']
+        self.__informacion_excel_duplicada = resultado_estructuracion
         self.__gerencia_excel = resultado_estructuracion['resultado']
         # todas las gerencias existentes en la base de datos
         self.__obtener_gerencia_existente = self.obtener()
@@ -65,7 +65,7 @@ class Gerencia:
         else:
             lista_gerencias = [{**item, 'NIT': int(item['NIT'])} if isinstance(item.get('NIT'), (int, float)) and not math.isnan(item.get('NIT')) else item for item in duplicados]
         
-        return {'resultado':resultado,'duplicados':lista_gerencias}
+        return {'resultado':resultado,'duplicados':lista_gerencias,'estado': 3 if len(lista_gerencias) > 0 else 0 }
         
     def validacion_informacion_gerencia_nit(self):
         try:
@@ -79,6 +79,7 @@ class Gerencia:
                     gerencia_filtrada_excel.append(item)
                 else:
                     gerencia_log.append(item)
+            
             return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_filtrada_excel) > 0 else 0}
 
         except Exception as e:
@@ -129,20 +130,13 @@ class Gerencia:
                 novedades_de_gerencia = self.comparacion_gerencia()
                 # informacion a insertar
                 lista_insert = novedades_de_gerencia.get("insercion_datos")['respuesta']
-                
                 gerencia_update = novedades_de_gerencia.get("actualizacion_datos")['respuesta']
-                
                 sin_cambios = novedades_de_gerencia.get("excepciones_campos_unicos")['respuesta']
-                
                 excepciones_id_usuario = novedades_de_gerencia.get("exepcion_id_usuario")['respuesta']
-                
                 excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")['respuesta']
-
                 log_transaccion_registro = self.insertar_inforacion(lista_insert)
                 log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
-                
                 log_nit_invalido = self.validacion_informacion_gerencia_nit()
-                
                 estado_id = self.proceso_sacar_estado()
 
                 log_transaccion_registro_gerencia = {
@@ -158,7 +152,7 @@ class Gerencia:
                         "gerencia_nit_no_existe": excepciones_id_usuario,
                         "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
                         "gerencias_existentes":excepciones_gerencia,
-                        "gerencias_duplicadas": self.__informacion_excel_duplicada
+                        "gerencias_duplicadas": self.__informacion_excel_duplicada['duplicados']
                         }
             
                     },
@@ -170,7 +164,7 @@ class Gerencia:
                 return log_transaccion_registro_gerencia
             
             return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__informacion_excel_duplicada,'estado':3}
+                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':self.__informacion_excel_duplicada['estado']}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -208,6 +202,7 @@ class Gerencia:
         gerencias_actualizacion = self.obtener_gerencias_actualizacion()
         excepciones_existente_gerencia = self.obtener_excepciones_datos_unicos()
 
+        
         return (
             gerencias_nuevas,
             gerencias_actualizacion,
@@ -383,7 +378,6 @@ class Gerencia:
                         "nombre": gerencia["nombre"],
                         "responsable_id": usuario if usuario else 0,
                     })
-                    
             return resultados
 
         except Exception as e:
@@ -397,10 +391,11 @@ class Gerencia:
 
     def insertar_inforacion(self, novedades_de_gerencia: List):
         try:
-            if len(novedades_de_gerencia) > 0:
+            cantidad_gerencias_registradas = len(novedades_de_gerencia)
+            if cantidad_gerencias_registradas > 0:
                 # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
                 # session.commit()
-                return novedades_de_gerencia
+                return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado un ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
 
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -410,10 +405,11 @@ class Gerencia:
 
     def actualizar_informacion(self, actualizacion_gerencia):
         try:
-            if len(actualizacion_gerencia) > 0  :
+            cantidad_clientes_actualizadas = len(actualizacion_gerencia)
+            if cantidad_clientes_actualizadas > 0  :
                 # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
                 # session.commit()
-                return actualizacion_gerencia
+                return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha registrado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
 
             return "No se han actualizado datos"
         except SQLAlchemyError as e:

@@ -6,13 +6,15 @@ from sqlalchemy.orm import aliased
 import pandas as pd
 
 class GestorExcel:
-    def __init__(self,columnas) -> None:
+    def __init__(self,columnas=None) -> None:
         self.columnas = columnas
     
     
     def filtro_de_excpeciones(self,cliente_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
-
+    
+        
         if len(filtro_actualizacion) > 0 and len(cliente_filtro) > 0:
+            
             df_ceco_filtro = pd.DataFrame(filtro_actualizacion)
             df_cliente = pd.DataFrame(cliente_filtro)
             df_filtrado = excepciones[
@@ -31,7 +33,7 @@ class GestorExcel:
         
         elif len(cliente_filtro) > 0:
             df_cliente = pd.DataFrame(cliente_filtro)
-            df_filtrado = excepciones[~excepciones[self.columnas].isin(df_ceco_filtro[self.columnas].to_dict('list')).all(axis=1)]
+            df_filtrado = excepciones[~excepciones[self.columnas].isin(df_cliente[self.columnas].to_dict('list')).all(axis=1)]
             
             filtro_cliente_actualizacion = df_filtrado.to_dict(orient='records')
 

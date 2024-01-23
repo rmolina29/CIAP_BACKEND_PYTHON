@@ -58,11 +58,11 @@ class Direccion:
             unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()['estado']
             sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")['estado']
             excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['estado']
-            gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")['estado']
+            unidad_organizativas_existentes = novedades_de_unidad_organizativa.get("unidad_organizativas_existentes")['estado']
             estado_duplicado = self.__informacion_excel_duplicada['estado']
 
             # Crear un conjunto con todos los valores de estado
-            estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, gerencia_existente,estado_duplicado}
+            estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, unidad_organizativas_existentes,estado_duplicado}
 
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
@@ -76,7 +76,6 @@ class Direccion:
             if self.__validacion_contenido:
                 novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
                 # informacion a insertar
-                
                 lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")['respuesta']
                 
                 unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()['respuesta']
@@ -85,7 +84,7 @@ class Direccion:
                 
                 excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['respuesta']
                 
-                gerencia_existente = novedades_de_unidad_organizativa.get("gerencias_existentes")['respuesta']
+                unidad_organizativas_existentes = novedades_de_unidad_organizativa.get("unidad_organizativas_existentes")['respuesta']
             
 
                 log_transaccion_registro = self.insertar_informacion(lista_insert)
@@ -94,19 +93,19 @@ class Direccion:
                 
                 estado_id = self.proceso_sacar_estado()
                 
-                log_transaccion_registro_gerencia = {
+                log_transaccion_registro_unidad_organizativa = {
                         "log_transaccion_excel": {
                             'Respuesta':[
                                 {
-                                    "gerencia_registradas": log_transaccion_registro,
-                                    "gerencias_actualizadas": log_transaccion_actualizar,
-                                    "gerencias_sin_cambios": sin_cambios,
+                                    "unidad_organizativa_registradas": log_transaccion_registro,
+                                    "unidad_organizativa_actualizadas": log_transaccion_actualizar,
+                                    "unidad_organizativas_sin_cambios": sin_cambios,
                                 }
                             ],
                             'errores':{
                                 "unidad_organizativa_id_no_existe": excepciones_id_usuario,
                                 "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada['duplicados'],
-                                "gerencias_existentes":gerencia_existente
+                                "unidad_organizativas_existentes":unidad_organizativas_existentes
                             }
                 
                         },
@@ -115,10 +114,10 @@ class Direccion:
                         }
                     }
 
-                return log_transaccion_registro_gerencia
+                return log_transaccion_registro_unidad_organizativa
             
             return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':3}
+                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':self.__informacion_excel_duplicada['estado']}
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -154,7 +153,7 @@ class Direccion:
                 "insercion_datos": registro_unidad_organizativa,
                 "excepciones_campos_unicos": excepciones_unidad_organizativa,
                 "exepcion_unidad_organizativa": unidad_organizativa_id_erp,
-                "gerencias_existentes":excepciones_datos_unicos
+                "unidad_organizativas_existentes":excepciones_datos_unicos
             }
 
             return resultado
@@ -165,7 +164,7 @@ class Direccion:
         excepciones_unidad_organizativa = self.obtener_no_sufrieron_cambios()
         unidad_organizativa_id_erp = self.unidad_organizativa_id_erp()
         registro_unidad_organizativa = self.filtrar_unidad_organizativas_nuevas(excepciones_unidad_organizativa)
-        excepciones_datos_unicos = self.gerencias_existentes()
+        excepciones_datos_unicos = self.unidad_organizativas_existentes()
 
         return (
             excepciones_unidad_organizativa,
@@ -361,11 +360,11 @@ class Direccion:
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         try:
-            if len(novedades_unidad_organizativa) > 0:
+            cantidad_unidad_organizativa_registradas = len(novedades_unidad_organizativa)
+            if cantidad_unidad_organizativa_registradas > 0:
                 # session.bulk_insert_mappings(ProyectoUnidadOrganizativa, novedades_unidad_organizativa)
                 # session.commit()
-                return novedades_unidad_organizativa
-
+                return {'mensaje': f'Se han realizado {cantidad_unidad_organizativa_registradas} registros exitosos.' if cantidad_unidad_organizativa_registradas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_registradas}) Unidad Organizativa exitosamente.'}
             return "No se han registrado datos"
         except SQLAlchemyError as e:
             session.rollback()
@@ -375,11 +374,11 @@ class Direccion:
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         try:
-        
-            if len(actualizacion_gerencia_unidad_organizativa) > 0:
+            cantidad_unidad_organizativa_actualizadas = len(actualizacion_gerencia_unidad_organizativa)
+            if cantidad_unidad_organizativa_actualizadas > 0:
                 # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
                 # session.commit()
-                return actualizacion_gerencia_unidad_organizativa
+                 return {'mensaje': f'Se han actualizado {cantidad_unidad_organizativa_actualizadas} Unidad Organizativa exitosamente.' if cantidad_unidad_organizativa_actualizadas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_actualizadas}) Unidad Organizativa exitosamente.'}
 
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
@@ -390,29 +389,15 @@ class Direccion:
     
     def proceso_informacion_con_id_gerencia(self):
         try:
-            resultados = []
-            for unidad_organizativa in self.__direcion_excel:
-                gerencia = self.obtener_gerencia(unidad_organizativa["unidad_gerencia_id_erp"])
-                if gerencia:
-                    resultados.append(
-                        {
-                            "unidad_organizativa_id_erp": unidad_organizativa[
-                                "unidad_organizativa_id_erp"
-                            ],
-                            "nombre": unidad_organizativa["nombre"],
-                            "gerencia_id": gerencia.to_dict().get("id"),
-                        }
-                    )
-                else:
-                    resultados.append(
-                        {
-                            "unidad_organizativa_id_erp": unidad_organizativa[
-                                "unidad_organizativa_id_erp"
-                            ],
-                            "nombre": unidad_organizativa["nombre"],
-                            "gerencia_id": 0,
-                        }
-                    )
+            resultados = [
+                {
+                    "unidad_organizativa_id_erp": unidad_organizativa["unidad_organizativa_id_erp"],
+                    "nombre": unidad_organizativa["nombre"],
+                    "gerencia_id": self.obtener_gerencia(unidad_organizativa["unidad_gerencia_id_erp"]).to_dict().get("id") if self.obtener_gerencia(unidad_organizativa["unidad_gerencia_id_erp"]) else 0,
+                }
+                for unidad_organizativa in self.__direcion_excel
+            ]
+            
             return resultados
         except Exception as e:
             session.rollback()
@@ -420,7 +405,7 @@ class Direccion:
         
         
     
-    def gerencias_existentes(self):
+    def unidad_organizativas_existentes(self):
         
         validacion = self.__validacion_contenido
         
