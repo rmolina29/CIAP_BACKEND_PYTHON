@@ -1,7 +1,6 @@
 import math
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
-from app.parametros.gerencia.model.datos_personales_model import UsuarioDatosPersonales
 from app.database.db import session
 from typing import List
 from sqlalchemy import and_
@@ -35,7 +34,7 @@ class Gerencia:
         df_excel = df[selected_columns]
         
         if df_excel.empty:
-                return {'resultado': [], 'duplicados': []}
+                return {'resultado': [], 'duplicados': [],'estado': 0}
 
         # Cambiar los nombres de las columnas
         df_excel = df_excel.rename(
@@ -80,7 +79,7 @@ class Gerencia:
                 else:
                     gerencia_log.append(item)
             
-            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_filtrada_excel) > 0 else 0}
+            return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_log) > 0 else 0}
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
@@ -115,8 +114,11 @@ class Gerencia:
             
             log_nit_invalido = self.validacion_informacion_gerencia_nit()['estado']
             
+            duplicados_estado = self.__informacion_excel_duplicada['estado']
+            
             # Crear un conjunto con todos los valores de estado
-            estados = {lista_insert, gerencia_update, sin_cambios, excepciones_id_usuario, excepciones_gerencia, log_nit_invalido}
+            estados = {lista_insert, gerencia_update, sin_cambios, excepciones_id_usuario, 
+                       excepciones_gerencia, log_nit_invalido,duplicados_estado}
 
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
@@ -126,6 +128,10 @@ class Gerencia:
     # class
     def transacciones(self):
         try:
+            
+            log_nit_invalido = self.validacion_informacion_gerencia_nit()
+            estado_id = self.proceso_sacar_estado()
+            
             if  self.__validacion_contenido:
                 novedades_de_gerencia = self.comparacion_gerencia()
                 # informacion a insertar
@@ -136,8 +142,6 @@ class Gerencia:
                 excepciones_gerencia = novedades_de_gerencia.get("excepcion_gerencia_existentes")['respuesta']
                 log_transaccion_registro = self.insertar_inforacion(lista_insert)
                 log_transaccion_actualizar = self.actualizar_informacion(gerencia_update)
-                log_nit_invalido = self.validacion_informacion_gerencia_nit()
-                estado_id = self.proceso_sacar_estado()
 
                 log_transaccion_registro_gerencia = {
                     "log_transaccion_excel": {
@@ -150,9 +154,10 @@ class Gerencia:
                         ],
                         'errores':{
                         "gerencia_nit_no_existe": excepciones_id_usuario,
-                        "gerencia_filtro_nit_invalido":log_nit_invalido['log'],
+                        "gerencia_filtro_nit_invalido":{'datos':log_nit_invalido['log'] , 'mensaje':'La información digitada en campo gerente, debe contener solo números. Por favor, verifique que todos los valores sean numéricos.'} if len(log_nit_invalido['log']) else [],
                         "gerencias_existentes":excepciones_gerencia,
-                        "gerencias_duplicadas": self.__informacion_excel_duplicada['duplicados']
+                        "gerencias_duplicadas": {'datos':self.__informacion_excel_duplicada['duplicados'] , 'mensaje':'La información se encuentra duplicado (4) veces en la columna. Por favor, verifique los datos registrados.'} if len(self.__informacion_excel_duplicada['duplicados']) else []
+                            
                         }
             
                     },
@@ -162,9 +167,13 @@ class Gerencia:
                 }
 
                 return log_transaccion_registro_gerencia
-            
-            return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':self.__informacion_excel_duplicada['estado']}
+
+            return { 
+                    'Mensaje':'No hay informacion para realizar el proceso',
+                    'nit_invalidos':{'datos':log_nit_invalido['log'],'mensaje':'La información digitada en campo gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos.'} if len(log_nit_invalido['log']) else [],
+                    'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] , 'mensaje':'La información se encuentra duplicado (4) veces en la columna . Por favor, verifique los datos registrados.'} if len(self.__informacion_excel_duplicada['duplicados']) else [],
+                    'estado':estado_id 
+                    }
 
         except SQLAlchemyError as e:
             session.rollback()
@@ -246,7 +255,7 @@ class Gerencia:
             else:
                 nuevas_gerencias_a_registrar = []
             
-            return {'respuesta':nuevas_gerencias_a_registrar,'estado':1} if len(nuevas_gerencias_a_registrar)>0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
+            return {'respuesta':{'datos':nuevas_gerencias_a_registrar,'mensaje':''},'estado':1} if len(nuevas_gerencias_a_registrar)>0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
 
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
@@ -357,8 +366,10 @@ class Gerencia:
             id_usuario_no_existe = df_filtrado.to_dict(orient='records')
         else:
             id_usuario_no_existe = []
-            
-        return {'respuesta':id_usuario_no_existe,'estado':4} if len(id_usuario_no_existe) > 0 else {'respuesta':id_usuario_no_existe,'estado':0}
+        
+        cantidad_excepciones_id_usuario = len(id_usuario_no_existe)
+        return {'respuesta':{'datos':id_usuario_no_existe,'mensaje':'La cedula digitada no se encuentra registrada en el sistema.'} if cantidad_excepciones_id_usuario else []
+                ,'estado':3 if cantidad_excepciones_id_usuario > 0 else 0}
 
 
     #  a traves de esta funcion me va a devolver la gerencia compeleta pero con el id_usuario ya que se realiza
@@ -395,7 +406,7 @@ class Gerencia:
             if cantidad_gerencias_registradas > 0:
                 # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
                 # session.commit()
-                return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado un ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
+                return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado una ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
 
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -409,7 +420,7 @@ class Gerencia:
             if cantidad_clientes_actualizadas > 0  :
                 # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
                 # session.commit()
-                return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha registrado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
+                return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha actualizado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
 
             return "No se han actualizado datos"
         except SQLAlchemyError as e:
@@ -491,13 +502,23 @@ class Gerencia:
             respuesta_filtro = filtrar_las_actualizaciones['respuesta']
             
             if len(respuesta_filtro) > 0 or filtrar_las_actualizaciones['estado'] == 3:
-                return  {'respuesta': respuesta_filtro, 'estado': 3 if len(respuesta_filtro) > 0 else 0}
+                
+                return  {
+                          'respuesta':{
+                                        'datos':respuesta_filtro,
+                                        'mensaje':'El nombre de la Unidad de la Gerencia ya se encuentra registrado, verificar que se encuentre activo o registrado.'
+                                        } if len(respuesta_filtro) else []
+                         ,'estado': 3 if len(respuesta_filtro) > 0 else 0
+                         }
             
             obtener_excepcion = gerencias_existentes.to_dict(orient='records')
         else:
             obtener_excepcion = []
         
-        return {'respuesta':obtener_excepcion,'estado':3} if len(obtener_excepcion) > 0 else {'respuesta':obtener_excepcion,'estado':0}
+        obtener_cantidad_excepciones_gerencia = len(obtener_excepcion)
+        
+        return {'respuesta':{'datos':obtener_excepcion, 'mensaje':'El nombre de la Unidad de la Gerencia ya se encuentra registrado, verificar que se encuentre activo o registrado.'} if obtener_cantidad_excepciones_gerencia else [],
+                'estado':3} if obtener_cantidad_excepciones_gerencia > 0 else {'respuesta':obtener_excepcion,'estado':0}
     
     
     def filtro_de_excepciones(self,gerencia_filtro,filtro_actualizacion,gerencias_excepciones:pd.DataFrame):
