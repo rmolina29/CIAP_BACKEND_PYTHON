@@ -4,7 +4,8 @@ import math
 from app.database.db import session
 from app.parametros.cliente.model.cliente_model import ProyectoCliente
 from typing import List
-
+from app.parametros.mensajes_resultado.mensajes import GlobalMensaje
+from sqlalchemy.exc import SQLAlchemyError
 
 class Cliente:
     def __init__(self,file:UploadFile) -> None:
@@ -29,7 +30,7 @@ class Cliente:
             df_excel = df[selected_columns]
             
             if df_excel.empty:
-                return {'resultado': [], 'duplicados': [],'estado':0}
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
             
             # Cambiar los nombres de las columnas
             df_excel = df_excel.rename(
@@ -54,11 +55,17 @@ class Cliente:
             duplicated = pd.DataFrame(duplicados)
                 
             if duplicated.isnull().any(axis=1).any():
-                lista_gerencias = []
+                lista_clientes = []
             else:
-                lista_gerencias = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
+                lista_clientes = [{**item, 'identificacion': int(item['identificacion'])} if isinstance(item.get('identificacion'), (int, float)) and not math.isnan(item.get('identificacion')) else item for item in duplicados]
             
-            return {'resultado':resultado,'duplicados':lista_gerencias,'estado':3 if len(lista_gerencias) > 0 else 0}
+            cantidad_duplicados = len(lista_clientes)
+            return {
+                        'resultado':resultado,
+                        'duplicados':lista_clientes[0] if cantidad_duplicados > 0 else [],
+                        'cantidad_duplicados':cantidad_duplicados,
+                        'estado':3 if cantidad_duplicados > 0 else 0
+                    }
           
     def proceso_sacar_estado(self):
             
@@ -74,54 +81,55 @@ class Cliente:
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
             
-            return estados_filtrados            
+            return estados_filtrados if len(estados_filtrados) > 0 else 0    
     
     def transacciones(self):
-             
-        validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
-        
-        if validacion:
-        
-            estado_id = self.proceso_sacar_estado()
+        try:   
+            validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
             data_excel_filtro = self.validacion_informacion_cliente_nit()
-            obtener_duplicados = self.__proceso_de_informacion_estructuracion()
-            registro_clientes = self.filtro_clientes_nuevos()['respuesta']
-            actualizar_clientes = self.filtro_cliente_actualizar()['respuesta']
-            obtener_excepciones = self.obtener_excepciones_datos_unicos()['respuesta']
-                    
-         
             
-            log_transaccion_registro_gerencia = {
-                        "log_transaccion_excel": {
-                            'Respuesta':[
-                                {
-                                    'registo':self.insertar_informacion(registro_clientes),
-                                     'actualizar':self.actualizar_informacion(actualizar_clientes),
-                                     'sin_cambios':self.obtener_no_sufrieron_cambios()['respuesta'],
+            if validacion:
+            
+                estado_id = self.proceso_sacar_estado()
+                obtener_duplicados = self.__proceso_de_informacion_estructuracion()
+                registro_clientes = self.filtro_clientes_nuevos()['respuesta']
+                actualizar_clientes = self.filtro_cliente_actualizar()['respuesta']
+                obtener_excepciones = self.obtener_excepciones_datos_unicos()['respuesta']
+                
+                log_transaccion_registro_gerencia = {
+                            "log_transaccion_excel": {
+                                'Respuesta':[
+                                    {
+                                        'registro':self.insertar_informacion(registro_clientes),
+                                        'actualizar':self.actualizar_informacion(actualizar_clientes),
+                                        'sin_cambios':self.obtener_no_sufrieron_cambios()['respuesta'],
+                                    }
+                                ],
+                                'errores':{
+                                            'excepciones':{'datos':obtener_excepciones,'mensaje':GlobalMensaje.EXCEPCIONES_GENEREALES.value} if len(obtener_excepciones) > 0 else [],
+                                            'duplicados':{'datos':obtener_duplicados['duplicados'] ,'mensaje':GlobalMensaje.mensaje(obtener_duplicados['cantidad_duplicados'])} if len(procesar_duplicacion_clientes['duplicados']) else [],
+                                            'nit_invalidos':{'datos':data_excel_filtro['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(data_excel_filtro['log']) else []
                                 }
-                            ],
-                            'errores':{
-                                        'excepciones':obtener_excepciones if len(obtener_excepciones) > 0 else [],
-                                        'duplicados':obtener_duplicados['duplicados'],
-                                        'nit_invalidos':data_excel_filtro['log']
-                            }
-                
-                        },
-                        'estado':estado_id
-                        
-                    }
-                
-            return log_transaccion_registro_gerencia
-        
-        procesar_duplicacion_clientes = self.__proceso_de_informacion_estructuracion()
-        
-        return { 
-                'errores':{
-                    'mensaje':'No hay informacion para realizar el proceso',
-                    'nit_invalidos':self.validacion_informacion_cliente_nit()['log'],
-                    'duplicados':procesar_duplicacion_clientes['duplicados'],'estado':procesar_duplicacion_clientes['estado']
-            }}     
-    
+                    
+                            },
+                            'estado':estado_id
+                            
+                        }
+                    
+                return log_transaccion_registro_gerencia
+            
+            procesar_duplicacion_clientes = self.__proceso_de_informacion_estructuracion()
+            return {
+                        'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                        'nit_invalidos':{'datos':data_excel_filtro['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(data_excel_filtro['log']) else [],
+                        'duplicados': {'datos':procesar_duplicacion_clientes['duplicados'] ,'mensaje':GlobalMensaje.mensaje(procesar_duplicacion_clientes['cantidad_duplicados'])} if len(procesar_duplicacion_clientes['duplicados']) else [],
+                        'estado':procesar_duplicacion_clientes['estado']
+                }  
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise (e)
+        finally:
+            session.close()
     
     def obtener(self) -> List:
         informacion_cliente = session.query(ProyectoCliente).all()

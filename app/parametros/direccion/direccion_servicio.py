@@ -7,6 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
 from fastapi import  UploadFile
 
+from app.parametros.mensajes_resultado.mensajes import DireccionMensaje, GlobalMensaje
+
 class Direccion:
     def __init__(self,file:UploadFile) -> None:
         self.__file = file
@@ -25,10 +27,12 @@ class Direccion:
         df.columns = df.columns.str.strip()
         selected_columns = ["ID Dirección (ERP)", "Dirección", "ID Gerencia (ERP)"]
 
-        selected_data = df[selected_columns]
+        df_excel = df[selected_columns]
         
+        if df_excel.empty:
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
         # Cambiar los nombres de las columnas
-        selected_data = selected_data.rename(
+        df_excel = df_excel.rename(
             columns={
                 "ID Dirección (ERP)": "unidad_organizativa_id_erp",
                 "Dirección": "nombre",
@@ -36,10 +40,10 @@ class Direccion:
             }
         )
         
-        selected_data["unidad_organizativa_id_erp"] = selected_data["unidad_organizativa_id_erp"].str.strip()
-        selected_data["nombre"] = selected_data["nombre"].str.strip()
+        df_excel["unidad_organizativa_id_erp"] = df_excel["unidad_organizativa_id_erp"].str.strip()
+        df_excel["nombre"] = df_excel["nombre"].str.strip()
         
-        df_filtered = selected_data.dropna()
+        df_filtered = df_excel.dropna()
 
         duplicados_unidad_erp = df_filtered.duplicated(subset='unidad_organizativa_id_erp', keep=False)
         duplicados_nombre = df_filtered.duplicated(subset='nombre', keep=False)
@@ -48,7 +52,14 @@ class Direccion:
         resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
-        return {'resultado':resultado,'duplicados':duplicados,'estado': 3 if len(duplicados) > 0 else 0}
+        cantidad_duplicados = len(duplicados)
+        
+        return {
+                    'resultado':resultado,
+                    'duplicados':duplicados[0] if cantidad_duplicados > 0 else [],
+                    'cantidad_duplicados':cantidad_duplicados,
+                    'estado': 3 if cantidad_duplicados > 0 else 0
+                }
     
     # class
     def proceso_sacar_estado(self):
@@ -86,7 +97,6 @@ class Direccion:
                 
                 unidad_organizativas_existentes = novedades_de_unidad_organizativa.get("unidad_organizativas_existentes")['respuesta']
             
-
                 log_transaccion_registro = self.insertar_informacion(lista_insert)
                 
                 log_transaccion_actualizar = self.actualizar_informacion(unidad_organizativa_update)
@@ -97,17 +107,16 @@ class Direccion:
                         "log_transaccion_excel": {
                             'Respuesta':[
                                 {
-                                    "unidad_organizativa_registradas": log_transaccion_registro,
-                                    "unidad_organizativa_actualizadas": log_transaccion_actualizar,
-                                    "unidad_organizativas_sin_cambios": sin_cambios,
+                                    "direccion_registradas": log_transaccion_registro,
+                                    "direccion_actualizadas": log_transaccion_actualizar,
+                                    "direccion_sin_cambios": sin_cambios,
                                 }
                             ],
                             'errores':{
-                                "unidad_organizativa_id_no_existe": excepciones_id_usuario,
-                                "unidad_organizativa_duplicadas": self.__informacion_excel_duplicada['duplicados'],
-                                "unidad_organizativas_existentes":unidad_organizativas_existentes
+                                "direccion_id_no_existe": {'datos':excepciones_id_usuario,'mensaje':DireccionMensaje.EXCEPCION_NO_EXISTE.value} if len(excepciones_id_usuario) > 0 else [],
+                                "direccion_duplicadas": {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':GlobalMensaje.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
+                                "direccion_existentes":{'datos':unidad_organizativas_existentes,'mensaje':DireccionMensaje.EXCEPCION_DATOS_UNICOS.value} if len(unidad_organizativas_existentes) > 0 else []
                             }
-                
                         },
                         'estado':{
                             'id':estado_id
@@ -116,8 +125,11 @@ class Direccion:
 
                 return log_transaccion_registro_unidad_organizativa
             
-            return { 'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__informacion_excel_duplicada['duplicados'],'estado':self.__informacion_excel_duplicada['estado']}
+            return { 
+                    'mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':GlobalMensaje.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
+                    'estado':self.__informacion_excel_duplicada['estado']
+                    }
 
         except SQLAlchemyError as e:
             session.rollback()

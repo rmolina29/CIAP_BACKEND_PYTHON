@@ -13,6 +13,7 @@ import pandas as pd
 from sqlalchemy.orm import aliased
 from datetime import datetime
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
+from app.parametros.mensajes_resultado.mensajes import GlobalMensaje, MensajeAleratGerenica,ProyectosMensaje
 
 class Proyectos:
     
@@ -44,7 +45,7 @@ class Proyectos:
             "fecha_invalidas": self.obtener_fechas_invalidas()['respuesta'],
             "monto_invalidas": self.obtener_montos_invalidas()['respuesta'],
             "proyecto_filtro_nit_invalido": self.validacion_informacion_identificacion()['nit_invalido'],
-            "proyectos_duplicadas": self.__proyectos_excel_duplicada['duplicados']
+            "proyectos_duplicadas": {'datos':self.__proyectos_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__proyectos_excel_duplicada['cantidad_duplicados'])} if len(self.__proyectos_excel_duplicada['duplicados']) else [],
         }
     
     
@@ -74,35 +75,43 @@ class Proyectos:
             # Filtrar valores diferentes de 0 y eliminar duplicados
         estados_filtrados = [estado for estado in estados if estado != 0]
             
-        return estados_filtrados
+        return estados_filtrados if len(estados_filtrados)>0 else [0]
     
     def transacciones(self):
-        
-        lista_insert = self.obtener_proyectos_registro()
-        gerencia_update = self.obtener_proyectos_actualizacion()
-        
-        transaccion_registro = self.insertar_inforacion(lista_insert)
-        transaccion_actualizar = self.actualizar_informacion(gerencia_update)
-        
         id_estado = self.proceso_sacar_estado()
-        
-        log_transaccion_registro_proyecto = {
-                    "log_transaccion_excel": {
-                        'Respuesta':[
-                            {
-                                "proyecto_registradas": transaccion_registro,
-                                "proyectos_actualizadas": transaccion_actualizar,
-                                "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios()['respuesta'],
-                            }
-                        ],
-                        'errores':self.obtener_excepciones_proyectos()
-                    },
-                    'estado':{
-                        'id':id_estado
+        validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
+
+        if validacion_contenido:
+            
+            lista_insert = self.obtener_proyectos_registro()
+            gerencia_update = self.obtener_proyectos_actualizacion()
+            
+            transaccion_registro = self.insertar_inforacion(lista_insert)
+            transaccion_actualizar = self.actualizar_informacion(gerencia_update)
+            
+            log_transaccion_registro_proyecto = {
+                        "log_transaccion_excel": {
+                            'Respuesta':[
+                                {
+                                    "proyecto_registradas": transaccion_registro,
+                                    "proyectos_actualizadas": transaccion_actualizar,
+                                    "proyectos_sin_cambios": self.obtener_no_sufrieron_cambios()['respuesta'],
+                                }
+                            ],
+                            'errores':self.obtener_excepciones_proyectos()
+                        },
+                        'estado':{
+                            'id':id_estado
+                        }
                     }
-                }
         
-        return log_transaccion_registro_proyecto
+            return log_transaccion_registro_proyecto
+        
+        return  { 
+                    'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'duplicados':{'datos':self.__proyectos_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__proyectos_excel_duplicada['cantidad_duplicados'])} if len(self.__proyectos_excel_duplicada['duplicados']) else [],
+                    'estado':id_estado 
+                }
     
     def obtener(self):
         datos_proyectos = session.query(ModeloProyectos).all()
@@ -199,8 +208,15 @@ class Proyectos:
                 }
                 for item in duplicados
             ]
+            
+        proyectos_duplicados = len(proyectos_lista) 
         
-        return {'resultado':resultado,'duplicados':proyectos_lista,'estado':3 if len(proyectos_lista) > 0 else 0}
+        return {
+                'resultado':resultado,
+                'duplicados':proyectos_lista[0] if proyectos_duplicados > 0 else [],
+                'cantidad_duplicados':proyectos_duplicados,
+                'estado':3 if proyectos_duplicados > 0 else 0
+                }
     
     
     def validacion_informacion_identificacion(self):
@@ -219,7 +235,10 @@ class Proyectos:
                         'id_proyecto':item['ceco_id']
                         })
                     
-            return {'nit_invalido': proyecto_identificacion_incorrecta , 'proyecto_filtro_datos': proyecto_filtro_datos,'estado':3 if len(proyecto_identificacion_incorrecta) > 0 else 0}
+            return {
+                    'nit_invalido': {'datos':proyecto_identificacion_incorrecta,'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(proyecto_identificacion_incorrecta) > 0 else [] ,
+                    'proyecto_filtro_datos': proyecto_filtro_datos,'estado':3 if len(proyecto_identificacion_incorrecta) > 0 else 0
+                    }
 
         except Exception as e:
             raise Exception(f"Error al realizar la comparación: {str(e)}") from e
@@ -255,13 +274,13 @@ class Proyectos:
             
             df_obtener_proyectos_existentes_columnas_requeridas = df_obtener_proyectos_existentes.drop('proyecto_id_erp', axis=1)
             
-            
             filtro_actualizacion = pd.merge(
                 df_proyectos,
                 df_obtener_proyectos_existentes_columnas_requeridas,
                 on=['ceco_id'],
                 how ='inner'
             )
+            
             resultado_filtro_actualizacion = filtro_actualizacion[['id','proyecto_id_erp', 'ceco_id', 'nombre_x', 'objeto_x', 'contrato_x', 'responsable_id_x',
                                                        'unidad_organizativa_id_x', 'unidad_gerencia_id_x', 'cliente_id_x',
                                                        'estado_id_x', 'fecha_inicio_x', 'fecha_final_x', 'duracion_x',
@@ -269,15 +288,15 @@ class Proyectos:
                 columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x
             )
                                                        
+                                                       
             columnas_comparar = ['id','nombre', 'responsable_id','fecha_inicio', 'fecha_final', 'valor_inicial', 'valor_final', 'duracion', 'contrato', 'estado_id', 'objeto', 'unidad_gerencia_id', 'unidad_organizativa_id', 'cliente_id', 'ceco_id']                                          
             
             filtro_personalizado_subset,df_obtener_proyectos_existentes_columnas_requeridas_subset = self.comparacion_columnas_filtro(resultado_filtro_actualizacion,df_obtener_proyectos_existentes,columnas_comparar)
             
             resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
-            
+          
             actualizacion_proyectos = resultado_final.to_dict(orient='records')
             actualizacion_proyectos_log = resultado_final[['nombre','contrato']].to_dict(orient='records')
-            
             return {'respuesta':resultado_final,'log':actualizacion_proyectos_log,'estado':2} if len(actualizacion_proyectos) > 0 else {'respuesta':actualizacion_proyectos,'estado':0}
         
         return {'respuesta': [], 'estado': 0}  
@@ -330,43 +349,43 @@ class Proyectos:
                     how='inner',
                     on=columnas_requeridas
                 )
-
+                
                 proyectos_sin_cambio = no_sufren_cambios[['nombre','contrato']].to_dict(orient='records')
                 conteo_proyectos_sin_cambios = len(proyectos_sin_cambio)
                 
+               
                 proyectos_sin_cambios = {
                     'respuesta': [{
                     'sin_cambios':proyectos_sin_cambio,
                     'mensaje': f"Se econtraron un total de {conteo_proyectos_sin_cambios} proyectos sin cambios" if conteo_proyectos_sin_cambios > 1 else f"Se encontro ({conteo_proyectos_sin_cambios}) un proyecto sin cambios"
                 }],
-                    'estado':4
+                    'estado':3
                 } if conteo_proyectos_sin_cambios > 0 else {'respuesta':proyectos_sin_cambio,'estado':0}
                
             else:
                 proyectos_sin_cambios = {'respuesta': [], 'estado': 0}
-
             return proyectos_sin_cambios
     # metodos para obtener los valores de las validaciones
     def obtener_exepcion_responsable_no_existe(self):
-        obtener_responsable_id_no_existe = self.atrapar_una_excepcion('responsable_id','Por favor verificar que el NIT del gerente exista (se encuentre activo).')
+        obtener_responsable_id_no_existe = self.atrapar_una_excepcion('responsable_id',GlobalMensaje.NIT_NO_ENCONTRADO.value)
         return obtener_responsable_id_no_existe
     
     # se obtiene los proyectos que se le han enviado y al compararlo no existen en la base de datos 
     # (proyecto_ceco, proyecto_estado,proyecto cliente y la relacion entre proyecto_unidad_gerencia y proyecto_unidad_organizativa)
     def proyectos_unidad_excepcion(self):
-        obtener_excepcion_fechas = self.atrapar_excepciones('unidad_organizativa_id','unidad_gerencia_id','Por favor,realizar que el id de la gerencia o unidad_organizativa existan o se ecuentren activas y que la gerencia se ecuntre vinculada a una unidad organizativa.')
+        obtener_excepcion_fechas = self.atrapar_excepciones('unidad_organizativa_id','unidad_gerencia_id',ProyectosMensaje.GERENCIAS_NO_VINCULADAS.value)
         return obtener_excepcion_fechas
     
     def cliente_no_existe(self):
-        obtener_excepcion_cliente_proyectos = self.atrapar_una_excepcion('cliente_id','Por favor verificar que el id del proyecto cliente exista (se encuentre activo).')
+        obtener_excepcion_cliente_proyectos = self.atrapar_una_excepcion('cliente_id', GlobalMensaje.no_existen('ID Cliente'))
         return obtener_excepcion_cliente_proyectos
     
     def estado_proyecto_no_existe(self):
-        obtener_excepcion_estado = self.atrapar_una_excepcion('estado_id','Por favor verificar que el id del proyecto estado exista (se encuentre activo).')
+        obtener_excepcion_estado = self.atrapar_una_excepcion('estado_id',GlobalMensaje.no_existen('ID Estado'))
         return obtener_excepcion_estado
     
     def id_proyectos_invalidos(self):
-        obtener_excepcion_proyectos = self.atrapar_una_excepcion('ceco_id','Por favor verificar que el id del proyecto exista (se encuentre activo), o no se encuentre actualmente registrado en los proyectos.')
+        obtener_excepcion_proyectos = self.atrapar_una_excepcion('ceco_id',f'{GlobalMensaje.no_existen('ID Proyecto')}, o no se encuentre actualmente registrado en los proyectos.')
         return obtener_excepcion_proyectos
 
     
@@ -410,12 +429,12 @@ class Proyectos:
         return {'respuesta':  {'exepcion':obtener_monto, 'mensaje':mensaje},'estado':3}
     
     def obtener_montos_invalidas(self):
-        obtener_excepcion_fechas = self.atrapar_excepciones('valor_inicial','valor_final','Por favor,realizar verificacion de los montos de valor inicial y final sean superior a 0.')
+        obtener_excepcion_fechas = self.atrapar_excepciones('valor_inicial','valor_final','Por favor, verifique que los montos de valor inicial y final sean superior a 0.')
         return obtener_excepcion_fechas
     
     
     def obtener_fechas_invalidas(self):
-        obtener_fecha_invalida = self.atrapar_excepciones('fecha_inicio','fecha_final','Por favor,realizar verificacion de los campos de fecha tengan el formato indicado (2024-01-20)')
+        obtener_fecha_invalida = self.atrapar_excepciones('fecha_inicio','fecha_final','Por favor, verifique que los campos de fecha tengan el formato indicado. (2024-01-20)')
         return obtener_fecha_invalida
     
     def obtener_usuario(self,proyecto):

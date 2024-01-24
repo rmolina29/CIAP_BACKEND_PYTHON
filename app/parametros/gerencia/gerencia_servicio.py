@@ -7,6 +7,7 @@ from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import  UploadFile
 import pandas as pd
+from app.parametros.mensajes_resultado.mensajes import MensajeAleratGerenica,GlobalMensaje
 
 class Gerencia:
     def __init__(self,file:UploadFile) -> None:
@@ -34,7 +35,7 @@ class Gerencia:
         df_excel = df[selected_columns]
         
         if df_excel.empty:
-                return {'resultado': [], 'duplicados': [],'estado': 0}
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado': 0}
 
         # Cambiar los nombres de las columnas
         df_excel = df_excel.rename(
@@ -64,7 +65,14 @@ class Gerencia:
         else:
             lista_gerencias = [{**item, 'NIT': int(item['NIT'])} if isinstance(item.get('NIT'), (int, float)) and not math.isnan(item.get('NIT')) else item for item in duplicados]
         
-        return {'resultado':resultado,'duplicados':lista_gerencias,'estado': 3 if len(lista_gerencias) > 0 else 0 }
+        cantidad_duplicados = len(lista_gerencias)
+        
+        return {
+                'resultado':resultado,
+                'duplicados':lista_gerencias[0] if cantidad_duplicados > 0 else [],
+                'cantidad_duplicados':cantidad_duplicados,
+                'estado': 3 if cantidad_duplicados > 0 else 0 
+                }
         
     def validacion_informacion_gerencia_nit(self):
         try:
@@ -72,7 +80,7 @@ class Gerencia:
                 return {'log': [], 'gerencia_filtrada_excel': [],'estado':0}
 
             gerencia_log, gerencia_filtrada_excel = [], []
-            
+               
             for item in self.__gerencia_excel:
                 if isinstance(item.get('NIT'), (int, float)):
                     gerencia_filtrada_excel.append(item)
@@ -128,7 +136,6 @@ class Gerencia:
     # class
     def transacciones(self):
         try:
-            
             log_nit_invalido = self.validacion_informacion_gerencia_nit()
             estado_id = self.proceso_sacar_estado()
             
@@ -154,10 +161,10 @@ class Gerencia:
                         ],
                         'errores':{
                         "gerencia_nit_no_existe": excepciones_id_usuario,
-                        "gerencia_filtro_nit_invalido":{'datos':log_nit_invalido['log'] , 'mensaje':'La información digitada en campo gerente, debe contener solo números. Por favor, verifique que todos los valores sean numéricos.'} if len(log_nit_invalido['log']) else [],
+                        "gerencia_filtro_nit_invalido":{'datos':log_nit_invalido['log'] , 'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(log_nit_invalido['log']) else [],
                         "gerencias_existentes":excepciones_gerencia,
-                        "gerencias_duplicadas": {'datos':self.__informacion_excel_duplicada['duplicados'] , 'mensaje':'La información se encuentra duplicado (4) veces en la columna. Por favor, verifique los datos registrados.'} if len(self.__informacion_excel_duplicada['duplicados']) else []
-                            
+                        "gerencias_duplicadas": {'datos':self.__informacion_excel_duplicada['duplicados'] , 'mensaje':MensajeAleratGerenica.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} 
+                                                    if len(self.__informacion_excel_duplicada['duplicados']) else []
                         }
             
                     },
@@ -169,9 +176,9 @@ class Gerencia:
                 return log_transaccion_registro_gerencia
 
             return { 
-                    'Mensaje':'No hay informacion para realizar el proceso',
-                    'nit_invalidos':{'datos':log_nit_invalido['log'],'mensaje':'La información digitada en campo gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos.'} if len(log_nit_invalido['log']) else [],
-                    'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] , 'mensaje':'La información se encuentra duplicado (4) veces en la columna . Por favor, verifique los datos registrados.'} if len(self.__informacion_excel_duplicada['duplicados']) else [],
+                    'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'nit_invalidos':{'datos':log_nit_invalido['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(log_nit_invalido['log']) else [],
+                    'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
                     'estado':estado_id 
                     }
 
@@ -255,7 +262,7 @@ class Gerencia:
             else:
                 nuevas_gerencias_a_registrar = []
             
-            return {'respuesta':{'datos':nuevas_gerencias_a_registrar,'mensaje':''},'estado':1} if len(nuevas_gerencias_a_registrar)>0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
+            return {'respuesta': nuevas_gerencias_a_registrar,'estado':1} if len(nuevas_gerencias_a_registrar)>0 else {'respuesta':nuevas_gerencias_a_registrar,'estado':0}
 
         except Exception as e:
             print(f"Se produjo un error: {str(e)}")
@@ -368,7 +375,7 @@ class Gerencia:
             id_usuario_no_existe = []
         
         cantidad_excepciones_id_usuario = len(id_usuario_no_existe)
-        return {'respuesta':{'datos':id_usuario_no_existe,'mensaje':'La cedula digitada no se encuentra registrada en el sistema.'} if cantidad_excepciones_id_usuario else []
+        return {'respuesta':{'datos':id_usuario_no_existe,'mensaje':GlobalMensaje.NIT_NO_ENCONTRADO.value} if cantidad_excepciones_id_usuario else []
                 ,'estado':3 if cantidad_excepciones_id_usuario > 0 else 0}
 
 
@@ -474,12 +481,7 @@ class Gerencia:
             df_gerencia = pd.DataFrame(self.__gerencia)
             df_obtener_unidad_de_gerencia = pd.DataFrame(self.__obtener_gerencia_existente)
             
-            df_gerencia['nombre'] = df_gerencia['nombre']
-            df_obtener_unidad_de_gerencia['nombre'] = df_obtener_unidad_de_gerencia['nombre']
-            
-            df_gerencia['unidad_gerencia_id_erp'] = df_gerencia['unidad_gerencia_id_erp']
-            df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'] = df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp']
-            
+         
             
             gerencias_existentes = df_gerencia[
                 df_gerencia.apply(
@@ -492,21 +494,20 @@ class Gerencia:
                     axis=1
                 ) |
                     df_gerencia['unidad_gerencia_id_erp'].str.lower().isin(df_obtener_unidad_de_gerencia['unidad_gerencia_id_erp'].str.lower().values)
-                ]
+                ]     
             
             gerencia_filtro = self.obtener_no_sufrieron_cambios()['respuesta']
             actualizar_ = self.obtener_gerencias_actualizacion()['respuesta']
+            excepcion_nit_usuario_invalido = self.excepciones_id_usuario()['respuesta']
             
-            
-            filtrar_las_actualizaciones = self.filtro_de_excepciones(gerencia_filtro,actualizar_,gerencias_existentes)
+            filtrar_las_actualizaciones = self.filtro_de_excepciones(gerencia_filtro,actualizar_,excepcion_nit_usuario_invalido,gerencias_existentes)
             respuesta_filtro = filtrar_las_actualizaciones['respuesta']
             
             if len(respuesta_filtro) > 0 or filtrar_las_actualizaciones['estado'] == 3:
-                
                 return  {
                           'respuesta':{
                                         'datos':respuesta_filtro,
-                                        'mensaje':'El nombre de la Unidad de la Gerencia ya se encuentra registrado, verificar que se encuentre activo o registrado.'
+                                        'mensaje':MensajeAleratGerenica.GERENCIA_EXCEPCION.value
                                         } if len(respuesta_filtro) else []
                          ,'estado': 3 if len(respuesta_filtro) > 0 else 0
                          }
@@ -517,25 +518,44 @@ class Gerencia:
         
         obtener_cantidad_excepciones_gerencia = len(obtener_excepcion)
         
-        return {'respuesta':{'datos':obtener_excepcion, 'mensaje':'El nombre de la Unidad de la Gerencia ya se encuentra registrado, verificar que se encuentre activo o registrado.'} if obtener_cantidad_excepciones_gerencia else [],
+        return {'respuesta':{'datos':obtener_excepcion, 'mensaje' : MensajeAleratGerenica.GERENCIA_EXCEPCION.value} if obtener_cantidad_excepciones_gerencia else [],
                 'estado':3} if obtener_cantidad_excepciones_gerencia > 0 else {'respuesta':obtener_excepcion,'estado':0}
     
     
-    def filtro_de_excepciones(self,gerencia_filtro,filtro_actualizacion,gerencias_excepciones:pd.DataFrame):
-           
-            
-            if len(filtro_actualizacion) > 0 and len(gerencia_filtro) > 0:
+    def filtro_de_excepciones(self,gerencia_filtro,filtro_actualizacion,filtro_gerencia_nit_no_existe,gerencias_excepciones:pd.DataFrame):
+        
+            if len(filtro_actualizacion) > 0 and len(gerencia_filtro) > 0 and len(filtro_gerencia_nit_no_existe) > 0:
                     df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
+                    df_gerencia_filtro_gerencia_nit_no_existe = pd.DataFrame(filtro_gerencia_nit_no_existe['datos'])
                     df_gerencia = pd.DataFrame(gerencia_filtro)
                     
                     df_filtrado = gerencias_excepciones[
                         ~gerencias_excepciones[['nombre','responsable_id']].isin(df_gerencia_filtro_actualizacion[['nombre','responsable_id']].to_dict('list')).all(axis=1) &
-                        ~gerencias_excepciones[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_gerencia[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1)
+                        ~gerencias_excepciones[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_gerencia[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1) &
+                        ~gerencias_excepciones[['unidad_gerencia_id_erp','nombre']].isin(df_gerencia_filtro_gerencia_nit_no_existe[['unidad_gerencia_id_erp','nombre']].to_dict('list')).all(axis=1)
                     ]
             
                     filtro_combinado = df_filtrado.to_dict(orient='records')
                     return {'respuesta': filtro_combinado, 'estado': 3} 
+                
+            elif len(filtro_actualizacion) > 0  and len(filtro_gerencia_nit_no_existe) > 0:
+                    df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
+                    df_gerencia_filtro_gerencia_nit_no_existe = pd.DataFrame(filtro_gerencia_nit_no_existe['datos'])
+                    df_gerencia = pd.DataFrame(gerencia_filtro)
+                    
+                    df_filtrado = gerencias_excepciones[
+                        ~gerencias_excepciones[['nombre','responsable_id']].isin(df_gerencia_filtro_actualizacion[['nombre','responsable_id']].to_dict('list')).all(axis=1) &
+                        ~gerencias_excepciones[['unidad_gerencia_id_erp','nombre']].isin(df_gerencia_filtro_gerencia_nit_no_existe[['unidad_gerencia_id_erp','nombre']].to_dict('list')).all(axis=1)
+                    ]
             
+                    filtro_combinado = df_filtrado.to_dict(orient='records')
+                    return {'respuesta': filtro_combinado, 'estado': 3} 
+                
+            elif len(filtro_gerencia_nit_no_existe)>0:
+                 df_gerencia_filtro_gerencia_nit_no_existe = pd.DataFrame(filtro_gerencia_nit_no_existe['datos'])
+                 df_filtro_nit = gerencias_excepciones[~gerencias_excepciones[['unidad_gerencia_id_erp','nombre']].isin(df_gerencia_filtro_gerencia_nit_no_existe[['unidad_gerencia_id_erp','nombre']].to_dict('list')).all(axis=1)]
+                 filtro_nit =  df_filtro_nit.to_dict(orient ='records')
+                 return {'respuesta':filtro_nit,'estado':3}
            
             elif len(filtro_actualizacion) > 0:
                 df_gerencia_filtro_actualizacion = pd.DataFrame(filtro_actualizacion)
@@ -548,6 +568,7 @@ class Gerencia:
                 df_estado = pd.DataFrame(gerencia_filtro)
                 df_filtrado = gerencias_excepciones[~gerencias_excepciones[['unidad_gerencia_id_erp','nombre','responsable_id']].isin(df_estado[['unidad_gerencia_id_erp','nombre','responsable_id']].to_dict('list')).all(axis=1)]
                 filtro_estado_actualizacion =  df_filtrado.to_dict(orient = 'records')
-                return {'respuesta':filtro_estado_actualizacion,'estado':3} 
+                return {'respuesta':filtro_estado_actualizacion,'estado':3}
+        
             else:
                 return {'respuesta': [], 'estado': 0}
