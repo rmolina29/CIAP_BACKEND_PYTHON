@@ -385,7 +385,7 @@ class Proyectos:
         return obtener_excepcion_estado
     
     def id_proyectos_invalidos(self):
-        obtener_excepcion_proyectos = self.atrapar_una_excepcion('ceco_id',f'{GlobalMensaje.no_existen('ID Proyecto')}, o no se encuentre actualmente registrado en los proyectos.')
+        obtener_excepcion_proyectos = self.atrapar_una_excepcion("ceco_id",f"{GlobalMensaje.no_existen('ID Proyecto')}, o no se encuentre actualmente registrado en los proyectos.")
         return obtener_excepcion_proyectos
 
     

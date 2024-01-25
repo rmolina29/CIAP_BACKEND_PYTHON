@@ -4,6 +4,7 @@ from app.parametros.ceco.model.ceco_model import ProyectoCeco
 from app.database.db import session
 from sqlalchemy.exc import SQLAlchemyError
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
+from app.parametros.mensajes_resultado.mensajes import CecoMensaje, GlobalMensaje
 
 class Ceco:
     def __init__(self,file:UploadFile) -> None:
@@ -31,7 +32,7 @@ class Ceco:
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
             
-            return estados_filtrados
+            return estados_filtrados if len(estados_filtrados) > 0 else 0  
         
     def transacciones(self):
         try:
@@ -40,7 +41,8 @@ class Ceco:
                 actualizacion_cecos = self.actualizar_ceco_filtro()['respuesta']
                 log_transaccion_registro = self.insertar_informacion(registro_de_cecos)
                 log_transaccion_actualizar = self.actualizar_informacion(actualizacion_cecos)
-
+                excepcion_ceco_existe = self.obtener_excepciones_datos_unicos()['respuesta']
+                    
                 estado_id = self.proceso_sacar_estado()
                 log_transaccion_registro_gerencia = {
                         "log_transaccion_excel": {
@@ -53,8 +55,8 @@ class Ceco:
                                 }
                             ],
                             'errores':{
-                                'cecos_excepciones':self.obtener_excepciones_datos_unicos()['respuesta'],
-                                'duplicados':self.__duplicados['duplicados']
+                                'cecos_excepciones':{'datos':excepcion_ceco_existe,'mensaje':CecoMensaje.EXCEPCION_CECO_UNICO.value} if len(excepcion_ceco_existe) > 0 else [],
+                                'duplicados':{'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else []
                             }
                 
                         },
@@ -65,9 +67,10 @@ class Ceco:
                 
                 return log_transaccion_registro_gerencia
             return  {   
-                        'Mensaje':'No hay informacion para realizar el proceso',
+                        'Mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                         'duplicados':self.__duplicados['duplicados'],
-                        'estado':self.__duplicados['estado']
+                        'duplicados': {'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else [],
+                        'estado': self.__duplicados['estado'] if 'estado' in self.__duplicados and isinstance(self.__duplicados['estado'], list) else [self.__duplicados.get('estado', self.__duplicados['estado'])]
                     }                
         except SQLAlchemyError as e:
             session.rollback()
@@ -104,9 +107,19 @@ class Ceco:
         duplicados_ceco = df_filtered.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
         datos_excel_ceco = df_filtered[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        
         duplicados = df_filtered[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
 
-        return {'resultado':datos_excel_ceco,'duplicados':duplicados, 'estado':3 if len(duplicados) > 0 else 0}
+        cantidad_duplicados = len(duplicados)
+
+        return {    
+                
+                'resultado':datos_excel_ceco,
+                'duplicados':duplicados[0] if cantidad_duplicados > 0 else [] , 
+                'cantidad_duplicados':cantidad_duplicados,
+                'estado':3 if cantidad_duplicados > 0 else 0
+                
+                }
     
     
     def obtener(self):

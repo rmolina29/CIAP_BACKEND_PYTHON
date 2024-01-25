@@ -21,7 +21,7 @@ class GlobalMensaje(Enum):
     def no_existen(campo)-> str:
         return f'El campo {campo} no se encuentra asociado o activo.Por favor, verifique que el {campo} exista dentro de la parametrizacion'
     
-    def mensaje(mensaje):
+    def mensaje(mensaje)-> str:
         return  f'La información se encuentra duplicada {mensaje} veces en la columna. Por favor, verifique los datos registrados.'
 
 
@@ -31,3 +31,8 @@ class DireccionMensaje(Enum):
 
 class ProyectosMensaje(Enum):
     GERENCIAS_NO_VINCULADAS = 'Por favor,revisar que la gerencia o direccion existan o se ecuentren activas y que la gerencia se ecuntre vinculada a una Direccion.'
+    
+    
+    
+class CecoMensaje(Enum):
+    EXCEPCION_CECO_UNICO = 'La informacion digitada ya se encuentra parametrizada. Por favor, verifique escoger un nombre de proyecto que actualmente no se ecuentre registrado.'
