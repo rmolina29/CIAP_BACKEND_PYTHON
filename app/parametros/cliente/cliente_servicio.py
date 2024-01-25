@@ -2,6 +2,7 @@ from fastapi import  UploadFile
 import pandas as pd
 import math
 from app.database.db import session
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.cliente.model.cliente_model import ProyectoCliente
 from typing import List
 from app.parametros.mensajes_resultado.mensajes import GlobalMensaje
@@ -81,17 +82,18 @@ class Cliente:
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
             
-            return estados_filtrados if len(estados_filtrados) > 0 else 0    
+            return estados_filtrados if len(estados_filtrados) > 0 else [0]   
     
     def transacciones(self):
         try:   
             validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
             data_excel_filtro = self.validacion_informacion_cliente_nit()
             
+            estado_id = self.proceso_sacar_estado()
+            obtener_duplicados = self.__proceso_de_informacion_estructuracion()
+            
             if validacion:
             
-                estado_id = self.proceso_sacar_estado()
-                obtener_duplicados = self.__proceso_de_informacion_estructuracion()
                 registro_clientes = self.filtro_clientes_nuevos()['respuesta']
                 actualizar_clientes = self.filtro_cliente_actualizar()['respuesta']
                 obtener_excepciones = self.obtener_excepciones_datos_unicos()['respuesta']
@@ -107,7 +109,7 @@ class Cliente:
                                 ],
                                 'errores':{
                                             'excepciones':{'datos':obtener_excepciones,'mensaje':GlobalMensaje.EXCEPCIONES_GENEREALES.value} if len(obtener_excepciones) > 0 else [],
-                                            'duplicados':{'datos':obtener_duplicados['duplicados'] ,'mensaje':GlobalMensaje.mensaje(obtener_duplicados['cantidad_duplicados'])} if len(procesar_duplicacion_clientes['duplicados']) else [],
+                                            'duplicados':{'datos':obtener_duplicados['duplicados'] ,'mensaje':GlobalMensaje.mensaje(obtener_duplicados['cantidad_duplicados'])} if len(obtener_duplicados['duplicados']) else [],
                                             'nit_invalidos':{'datos':data_excel_filtro['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(data_excel_filtro['log']) else []
                                 }
                     
@@ -118,12 +120,11 @@ class Cliente:
                     
                 return log_transaccion_registro_gerencia
             
-            procesar_duplicacion_clientes = self.__proceso_de_informacion_estructuracion()
             return {
                         'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                         'nit_invalidos':{'datos':data_excel_filtro['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(data_excel_filtro['log']) else [],
-                        'duplicados': {'datos':procesar_duplicacion_clientes['duplicados'] ,'mensaje':GlobalMensaje.mensaje(procesar_duplicacion_clientes['cantidad_duplicados'])} if len(procesar_duplicacion_clientes['duplicados']) else [],
-                        'estado':procesar_duplicacion_clientes['estado']
+                        'duplicados': {'datos':obtener_duplicados['duplicados'] ,'mensaje':GlobalMensaje.mensaje(obtener_duplicados['cantidad_duplicados'])} if len(obtener_duplicados['duplicados']) else [],
+                        'estado':estado_id
                 }  
         except SQLAlchemyError as e:
             session.rollback()
@@ -298,7 +299,7 @@ class Cliente:
         if len(novedades_unidad_organizativa) > 0:
             # session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
             # session.commit()
-            return {'mensaje': f'Se han realizado {cantidad_clientes_registrados} actualizaciones exitosos.' if cantidad_clientes_registrados > 1 else  f'Se ha actualizado un ({cantidad_clientes_registrados}) cliente exitosamente.'}
+            return {'mensaje': f'Se han realizado {cantidad_clientes_registrados} registros exitosos.' if cantidad_clientes_registrados > 1 else  f'Se ha registrado un ({cantidad_clientes_registrados}) cliente exitosamente.'}
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
@@ -306,7 +307,7 @@ class Cliente:
         if cantidad_clientes_actualizados> 0:
             # session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
             # session.commit()
-            return  {'mensaje': f'Se han realizado {cantidad_clientes_actualizados} actualizaciones exitosos.' if cantidad_clientes_actualizados > 1 else  f'Se ha actualizado un ({cantidad_clientes_actualizados}) cliente exitosamente.'}
+            return  {'mensaje': f'Se han realizado {cantidad_clientes_actualizados} actualizaciones exitosamente.' if cantidad_clientes_actualizados > 1 else  f'Se ha actualizado un ({cantidad_clientes_actualizados}) cliente exitosamente.'}
         return "No se han actualizado datos"
 
 

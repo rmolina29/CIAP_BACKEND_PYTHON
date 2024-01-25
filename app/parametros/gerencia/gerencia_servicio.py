@@ -131,7 +131,7 @@ class Gerencia:
             # Filtrar valores diferentes de 0 y eliminar duplicados
             estados_filtrados = [estado for estado in estados if estado != 0]
             
-            return estados_filtrados
+            return estados_filtrados if len(estados_filtrados) > 0 else [0]  
     
     # class
     def transacciones(self):

@@ -1,4 +1,5 @@
 from typing import List
+from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.direccion.model.proyecto_unidad_organizativa import ProyectoUnidadOrganizativa
 from app.database.db import session
 from app.parametros.gerencia.model.gerencia_model import ProyectoUnidadGerencia
@@ -125,10 +126,11 @@ class Direccion:
 
                 return log_transaccion_registro_unidad_organizativa
             
+            gestor_excel = GestorExcel()
             return { 
                     'mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':GlobalMensaje.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
-                    'estado':self.__informacion_excel_duplicada['estado']
+                    'estado': gestor_excel.transformacion_estados(self.__informacion_excel_duplicada)
                     }
 
         except SQLAlchemyError as e:

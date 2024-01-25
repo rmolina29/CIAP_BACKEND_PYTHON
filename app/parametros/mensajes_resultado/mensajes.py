@@ -3,7 +3,7 @@ from enum import Enum
 
 class MensajeAleratGerenica(Enum):
     GERENCIA_EXCEPCION = "El nombre de la Gerencia o la unidad gerencia ya se encuentran registrado. Por favor, verifique que no se encuentren registradas."
-    NIT_INVALIDO = 'La información digitada en campo Gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos'
+    NIT_INVALIDO = 'La información digitada en el campo Gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos'
     NIT_NO_ENCONTRADO = 'La cedula digitada no se encuentra registrada en el sistema, Por favor verifique que el Gerente exista o se encuentre activo.'
 
     def mensaje(mensaje):
@@ -12,7 +12,7 @@ class MensajeAleratGerenica(Enum):
     
 class GlobalMensaje(Enum):
     NO_HAY_INFORMACION = 'No hay informacion para realizar el proceso, por favor verifique que se encuentren parametros registrados o no se enucentren inactivos.'
-    NIT_INVALIDO = 'La información digitada en campo Gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos'
+    NIT_INVALIDO = 'La información digitada en el campo Gerente, debe contener solo números.Por favor, verifique que todos los valores sean numéricos'
     NIT_NO_ENCONTRADO = 'La cedula digitada no se encuentra registrada en el sistema, Por favor verifique que el Gerente exista o se encuentre activo.'
     EXCEPCIONES_GENEREALES = 'La informacion digitada ya se encuentra parametrizada. Por favor, verifique escoger una razon social o cedula que no se ecuentre registrada.'
     # CLIENTE_NO_EXISTEN = 'El campo ID Cliente no existe o no se encuentra activo.Por favor, verifique que el id cliente exista.'
@@ -36,3 +36,8 @@ class ProyectosMensaje(Enum):
     
 class CecoMensaje(Enum):
     EXCEPCION_CECO_UNICO = 'La informacion digitada ya se encuentra parametrizada. Por favor, verifique escoger un nombre de proyecto que actualmente no se ecuentre registrado.'
+    
+class EstadoMensaje(Enum):
+    EXCEPCION_ESTADO_UNICO = 'La informacion digitada ya se encuentra parametrizada. Por favor, verifique escoger un Estado que actualmente no se ecuentre registrado.'
+    
+    

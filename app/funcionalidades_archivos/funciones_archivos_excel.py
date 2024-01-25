@@ -10,6 +10,9 @@ class GestorExcel:
         self.columnas = columnas
     
     
+    def transformacion_estados(self,duplicados_estado:dict):
+        return duplicados_estado['estado'] if 'estado' in duplicados_estado and isinstance(duplicados_estado['estado'], list) else [duplicados_estado.get('estado', duplicados_estado['estado'])]
+    
     def filtro_de_excpeciones(self,cliente_filtro,filtro_actualizacion,excepciones:pd.DataFrame):
     
         

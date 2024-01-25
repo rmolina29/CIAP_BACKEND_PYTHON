@@ -4,6 +4,7 @@ import pandas as pd
 from app.database.db import session
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.estado.model.estado_model import ProyectoEstado
+from app.parametros.mensajes_resultado.mensajes import CecoMensaje, EstadoMensaje, GlobalMensaje
 
 
 class Estado:
@@ -15,6 +16,7 @@ class Estado:
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
         self.__estados = estados_usuario_excel['resultado']
         self.__estados_duplicados = estados_usuario_excel
+        self.gestor_excel = GestorExcel()
         
     
     def proceso_sacar_estado(self):
@@ -38,8 +40,9 @@ class Estado:
             registro_estados = self.estados_nuevos()['respuesta']
             actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
             estado_id = self.proceso_sacar_estado()
+            excpecion = self.obtener_excepciones_datos_unicos_estado()['respuesta']
             
-            log_transaccion_registro_gerencia = {
+            log_transaccion_registro_estado = {
                         "log_transaccion_excel": {
                             'Respuesta':[
                                 {
@@ -49,8 +52,8 @@ class Estado:
                                 }
                             ],
                             'errores':{
-                                'duplicados':self.__estados_duplicados['duplicados'],
-                                'excpeciones':self.obtener_excepciones_datos_unicos_estado()['respuesta']
+                                'duplicados':{'datos':self.__estados_duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__estados_duplicados['cantidad_duplicados'])} if len(self.__estados_duplicados['duplicados']) else [],
+                                'excpeciones':{'datos':excpecion,'mensaje':EstadoMensaje.EXCEPCION_ESTADO_UNICO.value} if len(excpecion) > 0 else []
                             }
                 
                         },
@@ -59,12 +62,13 @@ class Estado:
                         }
                     }
             
-            return log_transaccion_registro_gerencia
-            
+            return log_transaccion_registro_estado
+        
+        
         return { 
-                    'Mensaje':'No hay informacion para realizar el proceso',
-                    'duplicados':self.__estados_duplicados['duplicados'],
-                    'estado':self.__estados_duplicados['estado']
+                    'Mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'duplicados' : {'datos':self.__estados_duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__estados_duplicados['cantidad_duplicados'])} if len(self.__estados_duplicados['duplicados']) else [],
+                    'estado': self.gestor_excel.transformacion_estados(self.__estados_duplicados)
                 }  
 
             
@@ -78,6 +82,8 @@ class Estado:
 
         df_excel = df[selected_columns]
         
+        if df_excel.empty:
+            return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
           # Cambiar los nombres de las columnas
         df_excel = df_excel.rename(
             columns={
@@ -97,7 +103,14 @@ class Estado:
         resultado = df_filtered[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
         duplicados = df_filtered[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
         
-        return {'resultado':resultado,'duplicados':duplicados, 'estado':3 if len(duplicados) > 0 else 0}
+        cantidad_duplicados = len(duplicados)
+        
+        return {
+                'resultado':resultado,
+                'duplicados':duplicados[0] if cantidad_duplicados > 0 else [] ,
+                'cantidad_duplicados':cantidad_duplicados,
+                'estado':3 if cantidad_duplicados > 0 else 0
+                }
     
     def obtener(self):
         estados = session.query(ProyectoEstado).all()
@@ -266,7 +279,7 @@ class Estado:
             # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
             # session.commit()
             
-            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosos.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
+            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
 
     

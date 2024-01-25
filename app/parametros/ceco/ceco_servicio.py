@@ -44,13 +44,13 @@ class Ceco:
                 excepcion_ceco_existe = self.obtener_excepciones_datos_unicos()['respuesta']
                     
                 estado_id = self.proceso_sacar_estado()
-                log_transaccion_registro_gerencia = {
+                log_transaccion_registro_ceco = {
                         "log_transaccion_excel": {
                             'Respuesta':[
                                 {
-                                    "gerencia_registradas": log_transaccion_registro,
-                                    "gerencias_actualizadas": log_transaccion_actualizar,
-                                    'cecos_sin_cambios':self.obtener_no_sufrieron_cambios()['respuesta'],
+                                    "ceco_registradas": log_transaccion_registro,
+                                    "ceco_actualizadas": log_transaccion_actualizar,
+                                    'ceco_sin_cambios':self.obtener_no_sufrieron_cambios()['respuesta'],
                          
                                 }
                             ],
@@ -65,13 +65,16 @@ class Ceco:
                         }
                     }
                 
-                return log_transaccion_registro_gerencia
+                return log_transaccion_registro_ceco
+            
+            gestor_excel = GestorExcel()
             return  {   
                         'Mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                         'duplicados':self.__duplicados['duplicados'],
                         'duplicados': {'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else [],
-                        'estado': self.__duplicados['estado'] if 'estado' in self.__duplicados and isinstance(self.__duplicados['estado'], list) else [self.__duplicados.get('estado', self.__duplicados['estado'])]
+                        'estado': gestor_excel.transformacion_estados(self.__duplicados)
                     }                
+                      
         except SQLAlchemyError as e:
             session.rollback()
             raise (e)
@@ -88,7 +91,7 @@ class Ceco:
         df_excel = df[selected_columns]
         
         if df_excel.empty:
-                return {'resultado': [], 'duplicados': [],'estado':0}
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
           # Cambiar los Nombres de las columnas
         df_excel = df_excel.rename(
             columns={
@@ -296,6 +299,6 @@ class Ceco:
             
             # session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
             # session.commit()
-            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosos.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
+            return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
     
