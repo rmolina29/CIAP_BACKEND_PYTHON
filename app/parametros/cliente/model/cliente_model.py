@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, Text
 from app.database.db import Base
-from sqlalchemy.dialects.mysql import TINYINT
-
 
 class ProyectoCliente(Base):
     
@@ -10,14 +8,12 @@ class ProyectoCliente(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     cliente_id_erp = Column(Text, nullable=False, unique=True)
     razon_social = Column(Text, unique=True, nullable=True)
-    identificacion = Column(Integer,nullable = True)
+    identificacion = Column(Integer, nullable=True)
     estado = Column(
-        TINYINT(unsigned=True), default=1
+        Integer, default=1
     ) 
-   
 
-    def __init__(self, id, cliente_id_erp, razon_social,identificacion,estado):
-        self.id = id
+    def __init__(self, cliente_id_erp, razon_social, identificacion, estado):
         self.cliente_id_erp = cliente_id_erp
         self.razon_social = razon_social
         self.identificacion = identificacion

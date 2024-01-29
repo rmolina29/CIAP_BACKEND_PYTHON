@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from fastapi import  UploadFile
 import pandas as pd
 from app.parametros.mensajes_resultado.mensajes import MensajeAleratGerenica,GlobalMensaje
+from sqlalchemy.dialects.postgresql import insert
 
 class Gerencia:
     def __init__(self,file:UploadFile) -> None:
@@ -139,7 +140,7 @@ class Gerencia:
             log_nit_invalido = self.validacion_informacion_gerencia_nit()
             estado_id = self.proceso_sacar_estado()
             
-            if  self.__validacion_contenido:
+            if  len(self.__gerencia) > 0:
                 novedades_de_gerencia = self.comparacion_gerencia()
                 # informacion a insertar
                 lista_insert = novedades_de_gerencia.get("insercion_datos")['respuesta']
@@ -233,6 +234,16 @@ class Gerencia:
     # class
     def filtrar_gerencias_nuevas(self, excepciones_gerencia):
         try:
+            if len(self.__obtener_gerencia_existente) == 0:
+                
+                df_unidad_gerencia = pd.DataFrame(self.__gerencia)
+                
+                resultado = df_unidad_gerencia[(df_unidad_gerencia['responsable_id'] != 0) ]
+                
+                registrar_data = resultado.to_dict(orient='records')
+                
+                return {'respuesta':registrar_data,'estado':1} if len(registrar_data) > 0 else {'respuesta':registrar_data,'estado':0}
+            
             if self.__validacion_contenido:
                 df_unidad_gerencia = pd.DataFrame(self.__gerencia)
                 df_obtener_unidad_gerencia_existentes = pd.DataFrame(self.__obtener_gerencia_existente)
@@ -362,7 +373,7 @@ class Gerencia:
     # esta validacion es para los usuarios que tienen items repetidos
     def excepciones_id_usuario(self):
         
-        if self.__validacion_contenido:
+        if len(self.__gerencia) > 0:
             df = pd.DataFrame(self.__gerencia)
             # Filtrar el DataFrame para obtener filas con valores nulos
             df_filtrado = df[(df == 0).any(axis=1)]
@@ -411,8 +422,9 @@ class Gerencia:
         try:
             cantidad_gerencias_registradas = len(novedades_de_gerencia)
             if cantidad_gerencias_registradas > 0:
-                # session.bulk_insert_mappings(ProyectoUnidadGerencia, novedades_de_gerencia)
-                # session.commit()
+                insertar_informacion = insert(ProyectoUnidadGerencia,novedades_de_gerencia)
+                session.execute(insertar_informacion)
+                session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado una ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
 
             return "No se han registrado datos"
@@ -425,8 +437,8 @@ class Gerencia:
         try:
             cantidad_clientes_actualizadas = len(actualizacion_gerencia)
             if cantidad_clientes_actualizadas > 0  :
-                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-                # session.commit()
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha actualizado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
 
             return "No se han actualizado datos"

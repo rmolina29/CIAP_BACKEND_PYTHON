@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, Text, ForeignKey
-from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import relationship
 from app.database.db import Base
-
+from sqlalchemy import SmallInteger
+from sqlalchemy.dialects.postgresql import INTEGER
 class ProyectoUnidadGerencia(Base):
     
     __tablename__ = "proyecto_unidad_gerencia"
@@ -11,7 +11,7 @@ class ProyectoUnidadGerencia(Base):
     unidad_gerencia_id_erp = Column(Text, nullable=False, unique=True)
     nombre = Column(Text, unique=True, nullable=True)
     responsable_id = Column(Integer, nullable=False)
-    estado = Column(TINYINT(unsigned=True), default=1)
+    estado = Column(Integer, default=1)
     
     unidades_organizativas = relationship("ProyectoUnidadOrganizativa", back_populates="gerencia")
     

@@ -44,22 +44,25 @@ class GestorExcel:
         else:
             return {'respuesta': [], 'estado': 0}
     
-    def obtener_id_usuario(self,identificacion):
+    def obtener_id_usuario(self, identificacion):
         usuario_auth_alias = aliased(UsuarioAuth)
         usuario_datos_personales_alias = aliased(UsuarioDatosPersonales)
-        
+
         id_usuario = (
-        session.query(usuario_auth_alias.id)
-            .join(usuario_datos_personales_alias, usuario_datos_personales_alias.id_usuario == usuario_auth_alias.id)
+            session.query(usuario_auth_alias.id)
+            .join(
+                usuario_datos_personales_alias,
+                usuario_datos_personales_alias.id_usuario == usuario_auth_alias.id,
+            )
             .filter(
                 and_(
                     usuario_datos_personales_alias.identificacion == identificacion,
-                    usuario_auth_alias.estado == 1
+                    usuario_auth_alias.estado == 1,
                 )
             )
             .first()
         )
-        
+
         resultado_id_usuario = {'id_usuario': id_usuario[0]} if id_usuario is not None else {'id_usuario': None}
-            
+        print(resultado_id_usuario)
         return resultado_id_usuario

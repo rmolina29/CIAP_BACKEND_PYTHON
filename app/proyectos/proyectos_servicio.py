@@ -565,8 +565,8 @@ class Proyectos:
             
             if num_proyectos > 0:
                 proyectos_log = proyectos_nuevos['log']
-                # session.bulk_insert_mappings(ModeloProyectos, registros_proyectos)
-                # session.commit()
+                session.bulk_insert_mappings(ModeloProyectos, registros_proyectos)
+                session.commit()
                 return {    
                         'registro':proyectos_log,
                         'mensaje': f'Se han realizado la carga de {num_proyectos} registros exitosos.' if num_proyectos > 1 else  f'Se ha cargado un ({num_proyectos}) registro exitoso.'
@@ -587,8 +587,8 @@ class Proyectos:
             
             if num_proyectos > 0  :
                 actualizacion_proyectos = actualizar_proyectos['log']
-                #  session.bulk_update_mappings(ModeloProyectos, actualizacion_proyectos_respuesta)
-                #  session.commit()
+                session.bulk_update_mappings(ModeloProyectos, actualizacion_proyectos_respuesta)
+                session.commit()
                 return {    
                         'actualizacion':actualizacion_proyectos,
                         'mensaje':f'Se han realizado un total de {num_proyectos} actualizaciones exitosas.' if num_proyectos > 1 else f'Se ha realizado {num_proyectos} actualización exitosa.'

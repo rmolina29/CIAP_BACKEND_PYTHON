@@ -5,6 +5,7 @@ from app.database.db import session
 from sqlalchemy.exc import SQLAlchemyError
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.mensajes_resultado.mensajes import CecoMensaje, GlobalMensaje
+from sqlalchemy.dialects.postgresql import insert
 
 class Ceco:
     def __init__(self,file:UploadFile) -> None:
@@ -36,7 +37,8 @@ class Ceco:
         
     def transacciones(self):
         try:
-            if self.validacion_existe_informacion(self.__obtener_cecos_existente_estado_activo):
+            if len(self.__data_usuario_ceco) > 0:
+                
                 registro_de_cecos = self.ceco_nuevos()['respuesta']
                 actualizacion_cecos = self.actualizar_ceco_filtro()['respuesta']
                 log_transaccion_registro = self.insertar_informacion(registro_de_cecos)
@@ -138,6 +140,10 @@ class Ceco:
         return ceco
     
     def ceco_nuevos(self):
+        # si no hay datos en la base de datos y es laprimera vez se insertan los datos que se envian.
+        if len(self.__obtener_cecos_existente) == 0:
+            return {'respuesta':self.__data_usuario_ceco,'estado':1}
+        
         validacion = self.validacion_existe_informacion(self.__obtener_cecos_existente)
         if validacion:
             df_ceco = pd.DataFrame(self.__data_usuario_ceco)
@@ -288,8 +294,9 @@ class Ceco:
     def insertar_informacion(self, novedades_unidad_organizativa):
         cantidad_de_registros = len(novedades_unidad_organizativa)
         if len(novedades_unidad_organizativa) > 0:
-            # session.bulk_insert_mappings(ProyectoCeco, novedades_unidad_organizativa)
-            # session.commit()
+            insertar_informacion = insert(ProyectoCeco,novedades_unidad_organizativa)
+            session.execute(insertar_informacion)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto ceco exitosamente.'}
         return "No se han registrado datos"
 
@@ -297,8 +304,8 @@ class Ceco:
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
             
-            # session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
     

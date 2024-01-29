@@ -9,7 +9,7 @@ import os
 load_dotenv()
 
 try:
-    DATABASE_URL = f"{os.getenv('DB_MODE')}://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_DATABASE')}?charset=utf8mb4&collation=utf8mb4_general_ci"
+    DATABASE_URL = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_DATABASE')}?options=-csearch_path%3Ddata"
     database = Database(DATABASE_URL)
     
     engine = sqlalchemy.create_engine(

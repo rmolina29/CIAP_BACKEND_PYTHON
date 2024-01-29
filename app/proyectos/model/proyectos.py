@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, Text,Date,Float
 from app.database.db import Base
-from sqlalchemy.dialects.mysql import TINYINT
 
 class ModeloProyectos(Base):
     
@@ -22,7 +21,7 @@ class ModeloProyectos(Base):
     cliente_id = Column(Integer, unique = False, nullable=False, primary_key=True)
     ceco_id = Column(Integer, unique = False, nullable=False, primary_key=True)
     responsable_id = Column(Integer, unique = False, nullable=False, primary_key=False)
-    estado = Column(TINYINT(unsigned=True), default = 1)
+    estado = Column(Integer, default=1)
 
     def __init__(self, 
             id,

@@ -7,6 +7,8 @@ from app.parametros.cliente.model.cliente_model import ProyectoCliente
 from typing import List
 from app.parametros.mensajes_resultado.mensajes import GlobalMensaje
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.dialects.postgresql import insert
+
 
 class Cliente:
     def __init__(self,file:UploadFile) -> None:
@@ -161,6 +163,9 @@ class Cliente:
     
     def filtro_clientes_nuevos(self):
         
+        if len(self.__obtener_clientes_existente) == 0:
+            return {'respuesta':self.__data_usuario_cliente ,'estado':1} if len(self.__data_usuario_cliente) > 0 else {'respuesta':self.__data_usuario_cliente ,'estado':0}
+        
         validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
         
         if validacion:
@@ -296,17 +301,20 @@ class Cliente:
     
     def insertar_informacion(self, novedades_unidad_organizativa: List):
         cantidad_clientes_registrados = len(novedades_unidad_organizativa)
-        if len(novedades_unidad_organizativa) > 0:
-            # session.bulk_insert_mappings(ProyectoCliente, novedades_unidad_organizativa)
-            # session.commit()
+        if cantidad_clientes_registrados > 0:
+            
+            insertar_informacion = insert(ProyectoCliente,novedades_unidad_organizativa)
+            session.execute(insertar_informacion)
+            session.commit()
+  
             return {'mensaje': f'Se han realizado {cantidad_clientes_registrados} registros exitosos.' if cantidad_clientes_registrados > 1 else  f'Se ha registrado un ({cantidad_clientes_registrados}) cliente exitosamente.'}
         return "No se han registrado datos"
 
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         cantidad_clientes_actualizados = len(actualizacion_gerencia_unidad_organizativa)
-        if cantidad_clientes_actualizados> 0:
-            # session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+        if cantidad_clientes_actualizados > 0:
+            session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_clientes_actualizados} actualizaciones exitosamente.' if cantidad_clientes_actualizados > 1 else  f'Se ha actualizado un ({cantidad_clientes_actualizados}) cliente exitosamente.'}
         return "No se han actualizado datos"
 
