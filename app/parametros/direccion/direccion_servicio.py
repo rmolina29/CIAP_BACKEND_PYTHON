@@ -144,7 +144,6 @@ class Direccion:
     def obtener_direccion(self):
             informacion_direccion = session.query(ProyectoUnidadOrganizativa).all()
             direccion_datos = [direccion.to_dict() for direccion in informacion_direccion]
-            print(direccion_datos)
             return direccion_datos
         
     
@@ -153,7 +152,6 @@ class Direccion:
         informacion_direccion = session.query(ProyectoUnidadOrganizativa).filter_by(estado=estado).all()
         # Convertir lista de objetos a lista de diccionarios
         direccion_datos = [direccion.to_dict() for direccion in informacion_direccion]
-        print(direccion_datos)
         return direccion_datos
     
     def comparacion_unidad_organizativa(self):
@@ -229,7 +227,6 @@ class Direccion:
 
     
     def obtener_gerencia(self, unidad_gerencia_id_erp):
-        print(unidad_gerencia_id_erp)
         obtener_gerencia =  (
             session.query(ProyectoUnidadGerencia)
             .filter(
@@ -241,7 +238,6 @@ class Direccion:
             .first()
         )
         
-        print('--------',obtener_gerencia)
         return obtener_gerencia
         
     def filtrar_unidad_organizativas_nuevas(self, excepciones_unidad_organizativa):

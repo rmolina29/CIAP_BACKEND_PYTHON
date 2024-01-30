@@ -88,13 +88,13 @@ class Cliente:
     
     def transacciones(self):
         try:   
-            validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
+            # validacion = self.validacion_existe_informacion(self.__obtener_clientes_existente)
             data_excel_filtro = self.validacion_informacion_cliente_nit()
             
             estado_id = self.proceso_sacar_estado()
             obtener_duplicados = self.__proceso_de_informacion_estructuracion()
             
-            if validacion:
+            if len(self.__data_usuario_cliente) > 0:
             
                 registro_clientes = self.filtro_clientes_nuevos()['respuesta']
                 actualizar_clientes = self.filtro_cliente_actualizar()['respuesta']

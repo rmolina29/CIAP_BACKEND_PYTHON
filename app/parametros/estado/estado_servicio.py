@@ -4,7 +4,8 @@ import pandas as pd
 from app.database.db import session
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.estado.model.estado_model import ProyectoEstado
-from app.parametros.mensajes_resultado.mensajes import CecoMensaje, EstadoMensaje, GlobalMensaje
+from app.parametros.mensajes_resultado.mensajes import EstadoMensaje, GlobalMensaje
+from sqlalchemy.dialects.postgresql import insert
 
 
 class Estado:
@@ -36,7 +37,7 @@ class Estado:
             return estados_filtrados
     
     def transacciones(self):
-        if self.validacion_existe_informacion(self.__obtener_estados_existente):
+        if len(self.__estados) > 0:
             registro_estados = self.estados_nuevos()['respuesta']
             actualizacion_estados = self.filtro_estado_actualizar()['respuesta']
             estado_id = self.proceso_sacar_estado()
@@ -170,6 +171,9 @@ class Estado:
     
     def estados_nuevos(self):
         
+        if len(self.__obtener_estados_existente) == 0:
+            return {'respuesta':self.__estados,'estado':1} if len(self.__estados)>0 else {'respuesta':self.__estados,'estado':0}
+        
         validacion = self.validacion_existe_informacion(self.__obtener_estados_existente)
         
         if validacion:
@@ -264,10 +268,12 @@ class Estado:
         return {'respuesta':estados_sin_cambios,'estado':3} if len(estados_sin_cambios)>0 else {'respuesta':estados_sin_cambios,'estado':0}
     
     
-    def insertar_informacion(self, novedades_unidad_organizativa):
-        cantidad_de_registros = len(novedades_unidad_organizativa)
+    def insertar_informacion(self, novedades_proyectos):
+        cantidad_de_registros = len(novedades_proyectos)
         if cantidad_de_registros > 0:
-            session.bulk_insert_mappings(ProyectoEstado, novedades_unidad_organizativa)
+            
+            insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
+            session.execute(insertar_informacion)
             session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto Estado exitosamente.'}

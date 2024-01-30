@@ -14,6 +14,7 @@ from sqlalchemy.orm import aliased
 from datetime import datetime
 from app.funcionalidades_archivos.funciones_archivos_excel import GestorExcel
 from app.parametros.mensajes_resultado.mensajes import GlobalMensaje, MensajeAleratGerenica,ProyectosMensaje
+from sqlalchemy.dialects.postgresql import insert
 
 class Proyectos:
     
@@ -34,6 +35,8 @@ class Proyectos:
     def comparacion_existe_datos(self,obtener_proyectos_existentes)->bool:
         return len(self.__proyectos) > 0 and len(obtener_proyectos_existentes) > 0
     
+    def existen_proyectos_excel(self):
+        return len(self.__proyectos) > 0
     
     def obtener_excepciones_proyectos(self):
         return {
@@ -79,9 +82,9 @@ class Proyectos:
     
     def transacciones(self):
         id_estado = self.proceso_sacar_estado()
-        validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
+        # validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
 
-        if validacion_contenido:
+        if self.existen_proyectos_excel():
             
             lista_insert = self.obtener_proyectos_registro()
             gerencia_update = self.obtener_proyectos_actualizacion()
@@ -303,6 +306,14 @@ class Proyectos:
     
     def obtener_proyectos_registro(self):
         
+            if len(self.proyectos_existentes) == 0:
+                df_proyectos = pd.DataFrame(self.__proyectos)
+                proyectos_condicion = df_proyectos.apply(lambda col: col != 0)
+                resultado = df_proyectos[proyectos_condicion.all(axis=1)]
+                proyectos_a_insertar = resultado[['nombre','contrato']].to_dict(orient='records')
+                proyectos_registro =  resultado.to_dict(orient='records')
+                return {'respuesta':proyectos_registro,'log':proyectos_a_insertar,'estado':1} if len(proyectos_registro)>0 else {'respuesta':proyectos_registro,'log':[],'estado':0}
+        
             validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
             
             if validacion_contenido:
@@ -323,7 +334,7 @@ class Proyectos:
                 obtner_respuesta_registro = obtener_ceco_registro.to_dict(orient='records')
                 log_obtner_respuesta_registro = obtener_ceco_registro[['nombre','contrato']].to_dict(orient='records')
                 
-                return {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'estado':0}
+                return {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':0}
         
             return {'respuesta': [], 'estado': 0}
  
@@ -565,8 +576,10 @@ class Proyectos:
             
             if num_proyectos > 0:
                 proyectos_log = proyectos_nuevos['log']
-                session.bulk_insert_mappings(ModeloProyectos, registros_proyectos)
+                insertar_informacion = insert(ModeloProyectos,registros_proyectos)
+                session.execute(insertar_informacion)
                 session.commit()
+           
                 return {    
                         'registro':proyectos_log,
                         'mensaje': f'Se han realizado la carga de {num_proyectos} registros exitosos.' if num_proyectos > 1 else  f'Se ha cargado un ({num_proyectos}) registro exitoso.'
