@@ -64,5 +64,4 @@ class GestorExcel:
         )
 
         resultado_id_usuario = {'id_usuario': id_usuario[0]} if id_usuario is not None else {'id_usuario': None}
-        print(resultado_id_usuario)
         return resultado_id_usuario
