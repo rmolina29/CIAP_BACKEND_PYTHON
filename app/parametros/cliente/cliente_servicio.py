@@ -28,12 +28,15 @@ class Cliente:
             # Imprimir las columnas reales del DataFrame
             df.columns = df.columns.str.strip()
             
+            if df.isna().any().any():
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
+            
             selected_columns = ["ID Cliente (ERP)", "Cliente", "NIT"]
 
-            df_excel = df[selected_columns]
+            df_excel = df[selected_columns].dropna()
             
-            if df_excel.empty:
-                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
+            # if df_excel.empty:
+            #     return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
             
             # Cambiar los nombres de las columnas
             df_excel = df_excel.rename(
@@ -47,13 +50,13 @@ class Cliente:
             df_excel["cliente_id_erp"] = df_excel["cliente_id_erp"].str.strip()
             df_excel["razon_social"] = df_excel["razon_social"].str.strip()
                 
-            df_filtered = df_excel.dropna()
+            # df_filtered = df_excel.dropna()
                 
-            duplicados_unidad_erp = df_filtered.duplicated(subset='cliente_id_erp', keep=False)
-            duplicados_razon_social = df_filtered.duplicated(subset='razon_social', keep=False)
+            duplicados_unidad_erp = df_excel.duplicated(subset='cliente_id_erp', keep=False)
+            duplicados_razon_social = df_excel.duplicated(subset='razon_social', keep=False)
                 # Filtrar DataFrame original
-            resultado = df_filtered[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
-            duplicados = df_filtered[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+            resultado = df_excel[~(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
+            duplicados = df_excel[(duplicados_unidad_erp | duplicados_razon_social)].to_dict(orient='records')
                 
             duplicated = pd.DataFrame(duplicados)
                 
@@ -93,6 +96,8 @@ class Cliente:
             
             estado_id = self.proceso_sacar_estado()
             obtener_duplicados = self.__proceso_de_informacion_estructuracion()
+            
+            print(self.__data_usuario_cliente)
             
             if len(self.__data_usuario_cliente) > 0:
             
