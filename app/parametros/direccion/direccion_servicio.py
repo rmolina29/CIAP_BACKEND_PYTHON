@@ -66,12 +66,12 @@ class Direccion:
     def proceso_sacar_estado(self):
             novedades_de_unidad_organizativa = self.comparacion_unidad_organizativa()
             
-            lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")['estado']
             unidad_organizativa_update = self.obtener_unidad_organizativa_actualizacion()['estado']
             sin_cambios = novedades_de_unidad_organizativa.get("excepciones_campos_unicos")['estado']
             excepciones_id_usuario = novedades_de_unidad_organizativa.get("exepcion_unidad_organizativa")['estado']
             unidad_organizativas_existentes = novedades_de_unidad_organizativa.get("unidad_organizativas_existentes")['estado']
             estado_duplicado = self.__informacion_excel_duplicada['estado']
+            lista_insert = novedades_de_unidad_organizativa.get("insercion_datos")['estado']
 
             # Crear un conjunto con todos los valores de estado
             estados = {lista_insert, unidad_organizativa_update, sin_cambios, excepciones_id_usuario, unidad_organizativas_existentes,estado_duplicado}
@@ -127,10 +127,15 @@ class Direccion:
                 return log_transaccion_registro_unidad_organizativa
             
             gestor_excel = GestorExcel()
+            
+            dato_estado = gestor_excel.transformacion_estados(self.__informacion_excel_duplicada)
+            dato_estado.insert(0, 0)
+            dato_estado = list(set(dato_estado))
+            
             return { 
                     'mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':GlobalMensaje.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
-                    'estado': gestor_excel.transformacion_estados(self.__informacion_excel_duplicada)
+                    'estado': dato_estado
                     }
 
         except SQLAlchemyError as e:
@@ -344,15 +349,22 @@ class Direccion:
                 
                 direccion_culmnas = direccion_actualizar[['id','nombre','gerencia_id']]
                 filtrado_actualizacion = direccion_culmnas.to_dict(orient='records')
+                
                 filtro_direccion = self.obtener_no_sufrieron_cambios()['respuesta']
                 
-                if len(filtro_direccion) != 0:
-                    df_unidad_organizativa = pd.DataFrame(filtro_direccion)
-                    columnas_filtrar = ['nombre', 'gerencia_id']
-                    df_filtrado = direccion_actualizar[~direccion_actualizar[columnas_filtrar].isin(df_unidad_organizativa[columnas_filtrar].to_dict('list')).all(axis=1)]
-                    filtrado_actualizacion = df_filtrado.to_dict(orient='records')
-                    return {'respuesta':filtrado_actualizacion,'estado':2} if len(filtrado_actualizacion) > 0 else {'respuesta':filtrado_actualizacion,'estado':0}
-        
+                # si existen exepciones de direccion_id_no_existentes
+                filtro_excpeciones = self.unidad_organizativa_id_erp()['respuesta']
+                
+                columnas_filtrar = ['unidad_organizativa_id_erp', 'nombre']
+                
+                gestor_proceso_excel = GestorExcel(columnas_filtrar)
+                
+                filtrar_las_actualizaciones = gestor_proceso_excel.filtro_de_excpeciones(filtro_direccion,filtro_excpeciones,direccion_actualizar)
+                
+                if len(filtrar_las_actualizaciones['respuesta']) > 0 or filtrar_las_actualizaciones['estado']:
+                    return {'respuesta': filtrar_las_actualizaciones['respuesta'], 'estado' : 3 if len(filtrar_las_actualizaciones['respuesta'])>0 else 0}
+
+                filtrado_actualizacion = direccion_culmnas.to_dict(orient='records')
         else:
              filtrado_actualizacion = []
              
@@ -391,9 +403,9 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_registradas = len(novedades_unidad_organizativa)
             if cantidad_unidad_organizativa_registradas > 0:
-                insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
-                session.execute(insertar_informacion)
-                session.commit()
+                # insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
+                # session.execute(insertar_informacion)
+                # session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_unidad_organizativa_registradas} registros exitosos.' if cantidad_unidad_organizativa_registradas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_registradas}) Unidad Organizativa exitosamente.'}
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -406,8 +418,8 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_actualizadas = len(actualizacion_gerencia_unidad_organizativa)
             if cantidad_unidad_organizativa_actualizadas > 0:
-                session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
-                session.commit()
+                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                # session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_unidad_organizativa_actualizadas} Unidad Organizativa exitosamente.' if cantidad_unidad_organizativa_actualizadas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_actualizadas}) Unidad Organizativa exitosamente.'}
 
             return "No se han actualizado datos"

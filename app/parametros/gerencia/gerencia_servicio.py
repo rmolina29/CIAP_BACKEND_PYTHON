@@ -422,9 +422,9 @@ class Gerencia:
         try:
             cantidad_gerencias_registradas = len(novedades_de_gerencia)
             if cantidad_gerencias_registradas > 0:
-                insertar_informacion = insert(ProyectoUnidadGerencia,novedades_de_gerencia)
-                session.execute(insertar_informacion)
-                session.commit()
+                # insertar_informacion = insert(ProyectoUnidadGerencia,novedades_de_gerencia)
+                # session.execute(insertar_informacion)
+                # session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado una ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
 
             return "No se han registrado datos"
@@ -437,8 +437,8 @@ class Gerencia:
         try:
             cantidad_clientes_actualizadas = len(actualizacion_gerencia)
             if cantidad_clientes_actualizadas > 0  :
-                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-                session.commit()
+                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                # session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha actualizado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
 
             return "No se han actualizado datos"

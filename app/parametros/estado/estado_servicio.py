@@ -272,9 +272,9 @@ class Estado:
         cantidad_de_registros = len(novedades_proyectos)
         if cantidad_de_registros > 0:
             
-            insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
-            session.execute(insertar_informacion)
-            session.commit()
+            # insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
+            # session.execute(insertar_informacion)
+            # session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto Estado exitosamente.'}
         return "No se han registrado datos"
@@ -282,8 +282,8 @@ class Estado:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
-            session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
-            session.commit()
+            # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
+            # session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
