@@ -163,3 +163,6 @@ myenv/Scripts/python.exe
 myenv/Scripts/pythonw.exe
 myenv/Scripts/slugify.exe
 myenv/Scripts/uvicorn.exe
+nombre_del_entorno/Scripts/pythonw.exe
+nombre_del_entorno/pyvenv.cfg
+nombre_del_entorno/Scripts/python.exe
