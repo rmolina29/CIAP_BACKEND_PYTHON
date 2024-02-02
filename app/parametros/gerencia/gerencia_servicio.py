@@ -26,8 +26,8 @@ class Gerencia:
     
     # class
     def __proceso_de_informacion_estructuracion(self):
-        
         df = pd.read_excel(self.__file.file)
+        
         # Imprimir las columnas reales del DataFrame
         df.columns = df.columns.str.strip()
         
@@ -49,11 +49,12 @@ class Gerencia:
             }
         )
         
-        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        # Convertir la columna "unidad_gerencia_id_erp" a tipo string y eliminar espacios
+        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].astype(str).str.strip()
+
+        # Convertir la columna "nombre" a tipo string y eliminar espacios
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
-
-
         duplicados_unidad_erp = df_excel.duplicated(subset='unidad_gerencia_id_erp', keep=False)
         duplicados_nombre = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
@@ -68,7 +69,6 @@ class Gerencia:
             lista_gerencias = [{**item, 'NIT': int(item['NIT'])} if isinstance(item.get('NIT'), (int, float)) and not math.isnan(item.get('NIT')) else item for item in duplicados]
         
         cantidad_duplicados = len(lista_gerencias)
-        
         return {
                 'resultado':resultado,
                 'duplicados':lista_gerencias[0] if cantidad_duplicados > 0 else [],
@@ -82,13 +82,13 @@ class Gerencia:
                 return {'log': [], 'gerencia_filtrada_excel': [],'estado':0}
 
             gerencia_log, gerencia_filtrada_excel = [], []
-               
+            
             for item in self.__gerencia_excel:
                 if isinstance(item.get('NIT'), (int, float)):
                     gerencia_filtrada_excel.append(item)
                 else:
                     gerencia_log.append(item)
-            
+                    
             return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_log) > 0 else 0}
 
         except Exception as e:
@@ -177,9 +177,8 @@ class Gerencia:
 
                 return log_transaccion_registro_gerencia
             
-            gestor_excel = GestorExcel()
             
-            dato_estado = gestor_excel.transformacion_estados(self.__informacion_excel_duplicada)
+            dato_estado = estado_id
             dato_estado.insert(0, 0)
             dato_estado = list(set(dato_estado))
             

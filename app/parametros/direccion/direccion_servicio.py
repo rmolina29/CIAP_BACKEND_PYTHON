@@ -43,8 +43,8 @@ class Direccion:
             }
         )
         
-        df_excel["unidad_organizativa_id_erp"] = df_excel["unidad_organizativa_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        df_excel["unidad_organizativa_id_erp"] = df_excel["unidad_organizativa_id_erp"].astype(str).str.strip()
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
 
         duplicados_unidad_erp = df_excel.duplicated(subset='unidad_organizativa_id_erp', keep=False)

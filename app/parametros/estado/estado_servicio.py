@@ -71,7 +71,7 @@ class Estado:
         dato_estado = list(set(dato_estado))
         
         return { 
-                    'Mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados' : {'datos':self.__estados_duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__estados_duplicados['cantidad_duplicados'])} if len(self.__estados_duplicados['duplicados']) else [],
                     'estado': dato_estado
                 }  
@@ -99,8 +99,8 @@ class Estado:
             }
         )
         
-        df_excel["estado_id_erp"] = df_excel["estado_id_erp"].str.strip()
-        df_excel["descripcion"] = df_excel["descripcion"].str.strip()
+        df_excel["estado_id_erp"] = df_excel["estado_id_erp"].astype(str).str.strip()
+        df_excel["descripcion"] = df_excel["descripcion"].astype(str).str.strip()
         
         
         estado_duplicado = df_excel.duplicated(subset = 'estado_id_erp', keep=False)

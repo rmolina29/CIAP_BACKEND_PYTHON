@@ -76,8 +76,7 @@ class Ceco:
             dato_estado = list(set(dato_estado))
             
             return  {   
-                        'Mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
-                        'duplicados':self.__duplicados['duplicados'],
+                        'mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                         'duplicados': {'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else [],
                         'estado': dato_estado
                     }                
@@ -109,8 +108,8 @@ class Ceco:
             }
         )
         
-        df_excel["ceco_id_erp"] = df_excel["ceco_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        df_excel["ceco_id_erp"] = df_excel["ceco_id_erp"].astype(str).str.strip()
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
         # uso de eliminacion de espacios en blancos
         

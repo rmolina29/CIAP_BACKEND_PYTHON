@@ -24,7 +24,10 @@ class Cliente:
         return len(self.__data_usuario_cliente) > 0 and len(obtener_clientes_existentes)>0
 
     def __proceso_de_informacion_estructuracion(self):
+        
             df = pd.read_excel(self.__file.file)
+            
+            df = df.dropna()
             # Imprimir las columnas reales del DataFrame
             df.columns = df.columns.str.strip()
             
@@ -33,7 +36,7 @@ class Cliente:
             
             selected_columns = ["ID Cliente (ERP)", "Cliente", "NIT"]
 
-            df_excel = df[selected_columns].dropna()
+            df_excel = df[selected_columns]
             
             # if df_excel.empty:
             #     return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
@@ -47,8 +50,8 @@ class Cliente:
                     }
                 )
             
-            df_excel["cliente_id_erp"] = df_excel["cliente_id_erp"].str.strip()
-            df_excel["razon_social"] = df_excel["razon_social"].str.strip()
+            df_excel["cliente_id_erp"] = df_excel["cliente_id_erp"].astype(str).str.strip()
+            df_excel["razon_social"] = df_excel["razon_social"].astype(str).str.strip()
                 
             # df_filtered = df_excel.dropna()
                 
