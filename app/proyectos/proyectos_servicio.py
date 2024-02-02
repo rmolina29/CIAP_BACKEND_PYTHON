@@ -110,6 +110,11 @@ class Proyectos:
         
             return log_transaccion_registro_proyecto
         
+        gestor_excel = GestorExcel()
+        
+        dato_estado = gestor_excel.transformacion_estados(self.__proyectos_excel_duplicada)
+        dato_estado.insert(0, 0)
+        dato_estado = list(set(dato_estado))
         return  { 
                     'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados':{'datos':self.__proyectos_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__proyectos_excel_duplicada['cantidad_duplicados'])} if len(self.__proyectos_excel_duplicada['duplicados']) else [],
@@ -159,8 +164,11 @@ class Proyectos:
                             "Valor inicial",
                             "Valor final"
                             ]
+        
 
         df_excel = df[selected_columns]
+        
+        df_excel = df_excel.dropna()
         
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'estado':0}
@@ -191,14 +199,13 @@ class Proyectos:
         df_excel["fecha_inicio"] = df_excel["fecha_inicio"]
         df_excel["fecha_final"] = df_excel["fecha_final"]
         
-        df_filtered = df_excel.dropna()
 
 
-        duplicados_id_proyecto_erp = df_filtered.duplicated(subset='ceco_id', keep=False)
+        duplicados_id_proyecto_erp = df_excel.duplicated(subset='ceco_id', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_id_proyecto_erp)].to_dict(orient='records')
+        resultado = df_excel[~(duplicados_id_proyecto_erp)].to_dict(orient='records')
         
-        duplicados = df_filtered[(duplicados_id_proyecto_erp)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_id_proyecto_erp)].to_dict(orient='records')
         
         duplicated = pd.DataFrame(duplicados)
         

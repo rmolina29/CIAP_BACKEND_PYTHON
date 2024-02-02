@@ -35,6 +35,8 @@ class Gerencia:
 
         df_excel = df[selected_columns]
         
+        df_excel = df_excel.dropna()
+        
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado': 0}
 
@@ -50,14 +52,13 @@ class Gerencia:
         df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].str.strip()
         df_excel["nombre"] = df_excel["nombre"].str.strip()
         
-        df_filtered = df_excel.dropna()
 
 
-        duplicados_unidad_erp = df_filtered.duplicated(subset='unidad_gerencia_id_erp', keep=False)
-        duplicados_nombre = df_filtered.duplicated(subset='nombre', keep=False)
+        duplicados_unidad_erp = df_excel.duplicated(subset='unidad_gerencia_id_erp', keep=False)
+        duplicados_nombre = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
-        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        resultado = df_excel[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
         duplicated = pd.DataFrame(duplicados)
         
@@ -175,12 +176,18 @@ class Gerencia:
                 }
 
                 return log_transaccion_registro_gerencia
-
+            
+            gestor_excel = GestorExcel()
+            
+            dato_estado = gestor_excel.transformacion_estados(self.__informacion_excel_duplicada)
+            dato_estado.insert(0, 0)
+            dato_estado = list(set(dato_estado))
+            
             return { 
                     'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'nit_invalidos':{'datos':log_nit_invalido['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(log_nit_invalido['log']) else [],
                     'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
-                    'estado':estado_id 
+                    'estado':dato_estado 
                     }
 
         except SQLAlchemyError as e:

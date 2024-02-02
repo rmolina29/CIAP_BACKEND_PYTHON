@@ -3,8 +3,6 @@ from sqlalchemy import Column, Integer,ForeignKey
 from app.database.db import Base
 from sqlalchemy.orm import relationship
 # Base = declarative_base()
-from sqlalchemy import SmallInteger
-from sqlalchemy.dialects.postgresql import INTEGER
 
 class UsuarioAuth(Base):
     __tablename__ = "usuario_auth"

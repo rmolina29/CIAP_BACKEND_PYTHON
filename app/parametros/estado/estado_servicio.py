@@ -17,7 +17,6 @@ class Estado:
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
         self.__estados = estados_usuario_excel['resultado']
         self.__estados_duplicados = estados_usuario_excel
-        self.gestor_excel = GestorExcel()
         
     
     def proceso_sacar_estado(self):
@@ -65,11 +64,16 @@ class Estado:
             
             return log_transaccion_registro_estado
         
+        gestor_excel = GestorExcel()
+            
+        dato_estado = gestor_excel.transformacion_estados(self.__estados_duplicados)
+        dato_estado.insert(0, 0)
+        dato_estado = list(set(dato_estado))
         
         return { 
                     'Mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados' : {'datos':self.__estados_duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__estados_duplicados['cantidad_duplicados'])} if len(self.__estados_duplicados['duplicados']) else [],
-                    'estado': self.gestor_excel.transformacion_estados(self.__estados_duplicados)
+                    'estado': dato_estado
                 }  
 
             
@@ -82,6 +86,8 @@ class Estado:
         selected_columns = ["ID Estado (ERP)", "Estado"]
 
         df_excel = df[selected_columns]
+        
+        df_excel = df_excel.dropna()
         
         if df_excel.empty:
             return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
@@ -96,13 +102,12 @@ class Estado:
         df_excel["estado_id_erp"] = df_excel["estado_id_erp"].str.strip()
         df_excel["descripcion"] = df_excel["descripcion"].str.strip()
         
-        df_filtered = df_excel.dropna()
         
-        estado_duplicado = df_filtered.duplicated(subset = 'estado_id_erp', keep=False)
-        duplicado_descripcion = df_filtered.duplicated(subset = 'descripcion', keep=False)
+        estado_duplicado = df_excel.duplicated(subset = 'estado_id_erp', keep=False)
+        duplicado_descripcion = df_excel.duplicated(subset = 'descripcion', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
-        duplicados = df_filtered[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        resultado = df_excel[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        duplicados = df_excel[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
         
         cantidad_duplicados = len(duplicados)
         

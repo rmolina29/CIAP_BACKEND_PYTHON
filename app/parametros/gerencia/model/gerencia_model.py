@@ -1,8 +1,6 @@
-from sqlalchemy import Column, Integer, Text, ForeignKey
+from sqlalchemy import Column, Integer, Text
 from sqlalchemy.orm import relationship
 from app.database.db import Base
-from sqlalchemy import SmallInteger
-from sqlalchemy.dialects.postgresql import INTEGER
 class ProyectoUnidadGerencia(Base):
     
     __tablename__ = "proyecto_unidad_gerencia"

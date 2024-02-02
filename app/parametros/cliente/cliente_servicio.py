@@ -24,19 +24,19 @@ class Cliente:
         return len(self.__data_usuario_cliente) > 0 and len(obtener_clientes_existentes)>0
 
     def __proceso_de_informacion_estructuracion(self):
+        
             df = pd.read_excel(self.__file.file)
             # Imprimir las columnas reales del DataFrame
             df.columns = df.columns.str.strip()
             
-            if df.isna().any().any():
-                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
-            
             selected_columns = ["ID Cliente (ERP)", "Cliente", "NIT"]
 
-            df_excel = df[selected_columns].dropna()
+            df_excel = df[selected_columns]
             
-            # if df_excel.empty:
-            #     return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
+            df_excel = df_excel.dropna()
+            
+            if df_excel.empty:
+                return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
             
             # Cambiar los nombres de las columnas
             df_excel = df_excel.rename(
@@ -96,8 +96,6 @@ class Cliente:
             
             estado_id = self.proceso_sacar_estado()
             obtener_duplicados = self.__proceso_de_informacion_estructuracion()
-            
-            print(self.__data_usuario_cliente)
             
             if len(self.__data_usuario_cliente) > 0:
             

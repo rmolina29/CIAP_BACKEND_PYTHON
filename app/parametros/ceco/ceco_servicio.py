@@ -70,11 +70,16 @@ class Ceco:
                 return log_transaccion_registro_ceco
             
             gestor_excel = GestorExcel()
+            
+            dato_estado = gestor_excel.transformacion_estados(self.__duplicados)
+            dato_estado.insert(0, 0)
+            dato_estado = list(set(dato_estado))
+            
             return  {   
                         'Mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                         'duplicados':self.__duplicados['duplicados'],
                         'duplicados': {'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else [],
-                        'estado': gestor_excel.transformacion_estados(self.__duplicados)
+                        'estado': dato_estado
                     }                
                       
         except SQLAlchemyError as e:
@@ -92,6 +97,8 @@ class Ceco:
 
         df_excel = df[selected_columns]
         
+        df_excel = df_excel.dropna()
+        
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
           # Cambiar los Nombres de las columnas
@@ -106,14 +113,13 @@ class Ceco:
         df_excel["nombre"] = df_excel["nombre"].str.strip()
         
         # uso de eliminacion de espacios en blancos
-        df_filtered = df_excel.dropna()
         
-        duplicados_ceco_erp = df_filtered.duplicated(subset='ceco_id_erp', keep=False)
-        duplicados_ceco = df_filtered.duplicated(subset='nombre', keep=False)
+        duplicados_ceco_erp = df_excel.duplicated(subset='ceco_id_erp', keep=False)
+        duplicados_ceco = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        datos_excel_ceco = df_filtered[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        datos_excel_ceco = df_excel[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
         
-        duplicados = df_filtered[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
 
         cantidad_duplicados = len(duplicados)
 
