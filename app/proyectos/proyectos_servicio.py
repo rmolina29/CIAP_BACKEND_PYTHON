@@ -103,9 +103,7 @@ class Proyectos:
                             ],
                             'errores':self.obtener_excepciones_proyectos()
                         },
-                        'estado':{
-                            'id':id_estado
-                        }
+                        'estado':id_estado
                     }
         
             return log_transaccion_registro_proyecto

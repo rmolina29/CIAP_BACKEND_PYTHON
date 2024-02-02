@@ -120,9 +120,7 @@ class Direccion:
                                 "direccion_existentes":{'datos':unidad_organizativas_existentes,'mensaje':DireccionMensaje.EXCEPCION_DATOS_UNICOS.value} if len(unidad_organizativas_existentes) > 0 else []
                             }
                         },
-                        'estado':{
-                            'id':estado_id
-                        }
+                        'estado':estado_id
                     }
 
                 return log_transaccion_registro_unidad_organizativa

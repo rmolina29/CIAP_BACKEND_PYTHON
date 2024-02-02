@@ -170,9 +170,7 @@ class Gerencia:
                         }
             
                     },
-                    'estado':{
-                        'id':estado_id
-                    }
+                    'estado':estado_id
                 }
 
                 return log_transaccion_registro_gerencia
