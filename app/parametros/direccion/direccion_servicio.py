@@ -402,9 +402,9 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_registradas = len(novedades_unidad_organizativa)
             if cantidad_unidad_organizativa_registradas > 0:
-                # insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
-                # session.execute(insertar_informacion)
-                # session.commit()
+                insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
+                session.execute(insertar_informacion)
+                session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_unidad_organizativa_registradas} registros exitosos.' if cantidad_unidad_organizativa_registradas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_registradas}) Unidad Organizativa exitosamente.'}
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -417,8 +417,8 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_actualizadas = len(actualizacion_gerencia_unidad_organizativa)
             if cantidad_unidad_organizativa_actualizadas > 0:
-                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
-                # session.commit()
+                session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_unidad_organizativa_actualizadas} Unidad Organizativa exitosamente.' if cantidad_unidad_organizativa_actualizadas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_actualizadas}) Unidad Organizativa exitosamente.'}
 
             return "No se han actualizado datos"

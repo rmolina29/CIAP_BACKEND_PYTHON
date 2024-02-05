@@ -297,9 +297,9 @@ class Ceco:
     def insertar_informacion(self, novedades_unidad_organizativa):
         cantidad_de_registros = len(novedades_unidad_organizativa)
         if len(novedades_unidad_organizativa) > 0:
-            # insertar_informacion = insert(ProyectoCeco,novedades_unidad_organizativa)
-            # session.execute(insertar_informacion)
-            # session.commit()
+            insertar_informacion = insert(ProyectoCeco,novedades_unidad_organizativa)
+            session.execute(insertar_informacion)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto ceco exitosamente.'}
         return "No se han registrado datos"
 
@@ -307,8 +307,8 @@ class Ceco:
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
             
-            # session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
     

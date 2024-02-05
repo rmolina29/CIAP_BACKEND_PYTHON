@@ -108,14 +108,15 @@ class Proyectos:
         
             return log_transaccion_registro_proyecto
         
-        gestor_excel = GestorExcel()
         
-        dato_estado = gestor_excel.transformacion_estados(self.__proyectos_excel_duplicada)
+        dato_estado = id_estado
         dato_estado.insert(0, 0)
         dato_estado = list(set(dato_estado))
+        
         return  { 
                     'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados':{'datos':self.__proyectos_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__proyectos_excel_duplicada['cantidad_duplicados'])} if len(self.__proyectos_excel_duplicada['duplicados']) else [],
+                    'proyecto_filtro_nit_invalido':self.validacion_informacion_identificacion()['nit_invalido'],
                     'estado':id_estado 
                 }
     
@@ -367,7 +368,6 @@ class Proyectos:
                 if no_sufren_cambios.empty:
                     return {'respuesta': [], 'estado': 0}
                 
-                print('paso obtener_no_sufrieron_cambios')
                 proyectos_sin_cambio = no_sufren_cambios[['nombre','contrato']].to_dict(orient='records')
                 conteo_proyectos_sin_cambios = len(proyectos_sin_cambio)
                 

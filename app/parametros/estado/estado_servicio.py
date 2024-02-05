@@ -164,12 +164,15 @@ class Estado:
             gestor_proceso_excel = GestorExcel(columnas_ceco_filtro)
             
             filtro_de_excepciones_y_actualizaciones = gestor_proceso_excel.filtro_de_excpeciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)
-            if len(filtro_de_excepciones_y_actualizaciones['respuesta']) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
-                return  {'respuesta': filtro_de_excepciones_y_actualizaciones['respuesta'],'estado': filtro_de_excepciones_y_actualizaciones['estado']}
+            respuesta_filtro = filtro_de_excepciones_y_actualizaciones['respuesta']
+            
+            if len(respuesta_filtro) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
+                return  {'respuesta': respuesta_filtro,'estado': filtro_de_excepciones_y_actualizaciones['estado']} if len(respuesta_filtro) > 0 else {'respuesta':respuesta_filtro,'estado':0}
             
             obtener_excepciones_estado =  resultado.to_dict(orient='records')
         else:
             obtener_excepciones_estado = []
+        
         return  {'respuesta':obtener_excepciones_estado,'estado':3} if len(obtener_excepciones_estado) > 0 else {'respuesta':obtener_excepciones_estado,'estado':0}
     
     def estados_nuevos(self):
@@ -275,9 +278,9 @@ class Estado:
         cantidad_de_registros = len(novedades_proyectos)
         if cantidad_de_registros > 0:
             
-            # insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
-            # session.execute(insertar_informacion)
-            # session.commit()
+            insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
+            session.execute(insertar_informacion)
+            session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto Estado exitosamente.'}
         return "No se han registrado datos"
@@ -285,8 +288,8 @@ class Estado:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
-            # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
