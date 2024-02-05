@@ -313,9 +313,9 @@ class Cliente:
         cantidad_clientes_registrados = len(novedades_unidad_organizativa)
         if cantidad_clientes_registrados > 0:
             
-            # insertar_informacion = insert(ProyectoCliente,novedades_unidad_organizativa)
-            # session.execute(insertar_informacion)
-            # session.commit()
+            insertar_informacion = insert(ProyectoCliente,novedades_unidad_organizativa)
+            session.execute(insertar_informacion)
+            session.commit()
   
             return {'mensaje': f'Se han realizado {cantidad_clientes_registrados} registros exitosos.' if cantidad_clientes_registrados > 1 else  f'Se ha registrado un ({cantidad_clientes_registrados}) cliente exitosamente.'}
         return "No se han registrado datos"
@@ -323,8 +323,8 @@ class Cliente:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         cantidad_clientes_actualizados = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_clientes_actualizados > 0:
-            # session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoCliente, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_clientes_actualizados} actualizaciones exitosamente.' if cantidad_clientes_actualizados > 1 else  f'Se ha actualizado un ({cantidad_clientes_actualizados}) cliente exitosamente.'}
         return "No se han actualizado datos"
 
