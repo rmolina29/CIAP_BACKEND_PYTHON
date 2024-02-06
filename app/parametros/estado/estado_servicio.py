@@ -17,7 +17,6 @@ class Estado:
         estados_usuario_excel = self.__proceso_de_informacion_estructuracion()
         self.__estados = estados_usuario_excel['resultado']
         self.__estados_duplicados = estados_usuario_excel
-        self.gestor_excel = GestorExcel()
         
     
     def proceso_sacar_estado(self):
@@ -58,18 +57,21 @@ class Estado:
                             }
                 
                         },
-                        'estado':{
-                            'id':estado_id
-                        }
+                        'estado':estado_id
                     }
             
             return log_transaccion_registro_estado
         
+        gestor_excel = GestorExcel()
+            
+        dato_estado = gestor_excel.transformacion_estados(self.__estados_duplicados)
+        dato_estado.insert(0, 0)
+        dato_estado = list(set(dato_estado))
         
         return { 
-                    'Mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
+                    'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados' : {'datos':self.__estados_duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__estados_duplicados['cantidad_duplicados'])} if len(self.__estados_duplicados['duplicados']) else [],
-                    'estado': self.gestor_excel.transformacion_estados(self.__estados_duplicados)
+                    'estado': dato_estado
                 }  
 
             
@@ -83,6 +85,8 @@ class Estado:
 
         df_excel = df[selected_columns]
         
+        df_excel = df_excel.dropna()
+        
         if df_excel.empty:
             return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
           # Cambiar los nombres de las columnas
@@ -93,16 +97,15 @@ class Estado:
             }
         )
         
-        df_excel["estado_id_erp"] = df_excel["estado_id_erp"].str.strip()
-        df_excel["descripcion"] = df_excel["descripcion"].str.strip()
+        df_excel["estado_id_erp"] = df_excel["estado_id_erp"].astype(str).str.strip()
+        df_excel["descripcion"] = df_excel["descripcion"].astype(str).str.strip()
         
-        df_filtered = df_excel.dropna()
         
-        estado_duplicado = df_filtered.duplicated(subset = 'estado_id_erp', keep=False)
-        duplicado_descripcion = df_filtered.duplicated(subset = 'descripcion', keep=False)
+        estado_duplicado = df_excel.duplicated(subset = 'estado_id_erp', keep=False)
+        duplicado_descripcion = df_excel.duplicated(subset = 'descripcion', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
-        duplicados = df_filtered[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        resultado = df_excel[~(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
+        duplicados = df_excel[(estado_duplicado | duplicado_descripcion)].to_dict(orient='records')
         
         cantidad_duplicados = len(duplicados)
         
@@ -161,12 +164,15 @@ class Estado:
             gestor_proceso_excel = GestorExcel(columnas_ceco_filtro)
             
             filtro_de_excepciones_y_actualizaciones = gestor_proceso_excel.filtro_de_excpeciones(estado_filtro_no_sufrieron_cambios,filtro_actualizacion,resultado)
-            if len(filtro_de_excepciones_y_actualizaciones['respuesta']) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
-                return  {'respuesta': filtro_de_excepciones_y_actualizaciones['respuesta'],'estado': filtro_de_excepciones_y_actualizaciones['estado']}
+            respuesta_filtro = filtro_de_excepciones_y_actualizaciones['respuesta']
+            
+            if len(respuesta_filtro) > 0 or filtro_de_excepciones_y_actualizaciones['estado'] == 3:
+                return  {'respuesta': respuesta_filtro,'estado': filtro_de_excepciones_y_actualizaciones['estado']} if len(respuesta_filtro) > 0 else {'respuesta':respuesta_filtro,'estado':0}
             
             obtener_excepciones_estado =  resultado.to_dict(orient='records')
         else:
             obtener_excepciones_estado = []
+        
         return  {'respuesta':obtener_excepciones_estado,'estado':3} if len(obtener_excepciones_estado) > 0 else {'respuesta':obtener_excepciones_estado,'estado':0}
     
     def estados_nuevos(self):
@@ -272,9 +278,9 @@ class Estado:
         cantidad_de_registros = len(novedades_proyectos)
         if cantidad_de_registros > 0:
             
-            # insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
-            # session.execute(insertar_informacion)
-            # session.commit()
+            insertar_informacion = insert(ProyectoEstado,novedades_proyectos)
+            session.execute(insertar_informacion)
+            session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto Estado exitosamente.'}
         return "No se han registrado datos"
@@ -282,8 +288,8 @@ class Estado:
     def actualizar_informacion(self, actualizacion_gerencia_unidad_organizativa):
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
-            # session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoEstado, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"

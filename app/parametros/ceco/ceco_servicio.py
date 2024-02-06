@@ -62,19 +62,21 @@ class Ceco:
                             }
                 
                         },
-                        'estado':{
-                            'id':estado_id
-                        }
+                        'estado':estado_id
                     }
                 
                 return log_transaccion_registro_ceco
             
             gestor_excel = GestorExcel()
+            
+            dato_estado = gestor_excel.transformacion_estados(self.__duplicados)
+            dato_estado.insert(0, 0)
+            dato_estado = list(set(dato_estado))
+            
             return  {   
-                        'Mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
-                        'duplicados':self.__duplicados['duplicados'],
+                        'mensaje': GlobalMensaje.NO_HAY_INFORMACION.value,
                         'duplicados': {'datos':self.__duplicados['duplicados'],'mensaje':GlobalMensaje.mensaje(self.__duplicados['cantidad_duplicados'])} if len(self.__duplicados['duplicados']) else [],
-                        'estado': gestor_excel.transformacion_estados(self.__duplicados)
+                        'estado': dato_estado
                     }                
                       
         except SQLAlchemyError as e:
@@ -92,6 +94,8 @@ class Ceco:
 
         df_excel = df[selected_columns]
         
+        df_excel = df_excel.dropna()
+        
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
           # Cambiar los Nombres de las columnas
@@ -102,18 +106,17 @@ class Ceco:
             }
         )
         
-        df_excel["ceco_id_erp"] = df_excel["ceco_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        df_excel["ceco_id_erp"] = df_excel["ceco_id_erp"].astype(str).str.strip()
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
         # uso de eliminacion de espacios en blancos
-        df_filtered = df_excel.dropna()
         
-        duplicados_ceco_erp = df_filtered.duplicated(subset='ceco_id_erp', keep=False)
-        duplicados_ceco = df_filtered.duplicated(subset='nombre', keep=False)
+        duplicados_ceco_erp = df_excel.duplicated(subset='ceco_id_erp', keep=False)
+        duplicados_ceco = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        datos_excel_ceco = df_filtered[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        datos_excel_ceco = df_excel[~(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
         
-        duplicados = df_filtered[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_ceco_erp | duplicados_ceco)].to_dict(orient='records')
 
         cantidad_duplicados = len(duplicados)
 
@@ -294,9 +297,9 @@ class Ceco:
     def insertar_informacion(self, novedades_unidad_organizativa):
         cantidad_de_registros = len(novedades_unidad_organizativa)
         if len(novedades_unidad_organizativa) > 0:
-            # insertar_informacion = insert(ProyectoCeco,novedades_unidad_organizativa)
-            # session.execute(insertar_informacion)
-            # session.commit()
+            insertar_informacion = insert(ProyectoCeco,novedades_unidad_organizativa)
+            session.execute(insertar_informacion)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_registros} registros exitosos.' if cantidad_de_registros > 1 else  f'Se ha registrado un ({cantidad_de_registros}) proyecto ceco exitosamente.'}
         return "No se han registrado datos"
 
@@ -304,8 +307,8 @@ class Ceco:
         cantidad_de_actualizaciones = len(actualizacion_gerencia_unidad_organizativa)
         if cantidad_de_actualizaciones > 0:
             
-            # session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
-            # session.commit()
+            session.bulk_update_mappings(ProyectoCeco, actualizacion_gerencia_unidad_organizativa)
+            session.commit()
             return  {'mensaje': f'Se han realizado {cantidad_de_actualizaciones} actualizaciones exitosamente.' if cantidad_de_actualizaciones > 1 else  f'Se ha actualizado un ({cantidad_de_actualizaciones}) registro exitosamente.'}
         return "No se han actualizado datos"
     

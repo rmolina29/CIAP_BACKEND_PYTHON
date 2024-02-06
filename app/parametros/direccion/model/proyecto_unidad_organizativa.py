@@ -1,9 +1,6 @@
 from sqlalchemy import Column, Integer, Text, ForeignKey
-from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import relationship
 from app.database.db import Base
-from sqlalchemy import SmallInteger
-from sqlalchemy.dialects.postgresql import INTEGER
 
 class ProyectoUnidadOrganizativa(Base):
     __tablename__ = "proyecto_unidad_organizativa"

@@ -2,9 +2,7 @@ from sqlalchemy import Column, Integer,ForeignKey
 from sqlalchemy.orm import relationship
 # from sqlalchemy.ext.declarative import declarative_base
 from app.database.db import Base
-from sqlalchemy import SmallInteger
 # Base = declarative_base()
-from sqlalchemy.dialects.postgresql import INTEGER
 class UsuarioDatosPersonales(Base):
     __tablename__ = "usuario_datos_personales"
 

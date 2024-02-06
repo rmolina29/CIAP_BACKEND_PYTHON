@@ -26,14 +26,16 @@ class Gerencia:
     
     # class
     def __proceso_de_informacion_estructuracion(self):
-        
         df = pd.read_excel(self.__file.file)
+        
         # Imprimir las columnas reales del DataFrame
         df.columns = df.columns.str.strip()
         
         selected_columns = ["ID Gerencia (ERP)", "Gerencia", "Responsable"]
 
         df_excel = df[selected_columns]
+        
+        df_excel = df_excel.dropna()
         
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado': 0}
@@ -47,17 +49,17 @@ class Gerencia:
             }
         )
         
-        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        # Convertir la columna "unidad_gerencia_id_erp" a tipo string y eliminar espacios
+        df_excel["unidad_gerencia_id_erp"] = df_excel["unidad_gerencia_id_erp"].astype(str).str.strip()
+
+        # Convertir la columna "nombre" a tipo string y eliminar espacios
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
-        df_filtered = df_excel.dropna()
-
-
-        duplicados_unidad_erp = df_filtered.duplicated(subset='unidad_gerencia_id_erp', keep=False)
-        duplicados_nombre = df_filtered.duplicated(subset='nombre', keep=False)
+        duplicados_unidad_erp = df_excel.duplicated(subset='unidad_gerencia_id_erp', keep=False)
+        duplicados_nombre = df_excel.duplicated(subset='nombre', keep=False)
         # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
-        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        resultado = df_excel[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
         duplicated = pd.DataFrame(duplicados)
         
@@ -67,7 +69,6 @@ class Gerencia:
             lista_gerencias = [{**item, 'NIT': int(item['NIT'])} if isinstance(item.get('NIT'), (int, float)) and not math.isnan(item.get('NIT')) else item for item in duplicados]
         
         cantidad_duplicados = len(lista_gerencias)
-        
         return {
                 'resultado':resultado,
                 'duplicados':lista_gerencias[0] if cantidad_duplicados > 0 else [],
@@ -81,13 +82,13 @@ class Gerencia:
                 return {'log': [], 'gerencia_filtrada_excel': [],'estado':0}
 
             gerencia_log, gerencia_filtrada_excel = [], []
-               
+            
             for item in self.__gerencia_excel:
                 if isinstance(item.get('NIT'), (int, float)):
                     gerencia_filtrada_excel.append(item)
                 else:
                     gerencia_log.append(item)
-            
+                    
             return {'log': gerencia_log, 'gerencia_filtrada_excel': gerencia_filtrada_excel,'estado': 3 if len(gerencia_log) > 0 else 0}
 
         except Exception as e:
@@ -169,18 +170,21 @@ class Gerencia:
                         }
             
                     },
-                    'estado':{
-                        'id':estado_id
-                    }
+                    'estado':estado_id
                 }
 
                 return log_transaccion_registro_gerencia
-
+            
+            
+            dato_estado = estado_id
+            dato_estado.insert(0, 0)
+            dato_estado = list(set(dato_estado))
+            
             return { 
                     'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'nit_invalidos':{'datos':log_nit_invalido['log'],'mensaje':GlobalMensaje.NIT_INVALIDO.value} if len(log_nit_invalido['log']) else [],
                     'duplicados': {'datos':self.__informacion_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__informacion_excel_duplicada['cantidad_duplicados'])} if len(self.__informacion_excel_duplicada['duplicados']) else [],
-                    'estado':estado_id 
+                    'estado':dato_estado 
                     }
 
         except SQLAlchemyError as e:
@@ -422,9 +426,9 @@ class Gerencia:
         try:
             cantidad_gerencias_registradas = len(novedades_de_gerencia)
             if cantidad_gerencias_registradas > 0:
-                # insertar_informacion = insert(ProyectoUnidadGerencia,novedades_de_gerencia)
-                # session.execute(insertar_informacion)
-                # session.commit()
+                insertar_informacion = insert(ProyectoUnidadGerencia,novedades_de_gerencia)
+                session.execute(insertar_informacion)
+                session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_gerencias_registradas} registros exitosos.' if cantidad_gerencias_registradas > 1 else  f'Se ha registrado una ({cantidad_gerencias_registradas}) proyecto Estado exitosamente.'}
 
             return "No se han registrado datos"
@@ -437,8 +441,8 @@ class Gerencia:
         try:
             cantidad_clientes_actualizadas = len(actualizacion_gerencia)
             if cantidad_clientes_actualizadas > 0  :
-                # session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
-                # session.commit()
+                session.bulk_update_mappings(ProyectoUnidadGerencia, actualizacion_gerencia)
+                session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_clientes_actualizadas} gerencias exitosamente.' if cantidad_clientes_actualizadas > 1 else  f'Se ha actualizado una ({cantidad_clientes_actualizadas}) Gerencia exitosamente.'}
 
             return "No se han actualizado datos"

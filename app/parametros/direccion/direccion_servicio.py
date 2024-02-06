@@ -30,6 +30,8 @@ class Direccion:
 
         df_excel = df[selected_columns]
         
+        df_excel = df_excel.dropna()
+        
         if df_excel.empty:
                 return {'resultado': [], 'duplicados': [],'cantidad_duplicados':0,'estado':0}
         # Cambiar los nombres de las columnas
@@ -41,17 +43,16 @@ class Direccion:
             }
         )
         
-        df_excel["unidad_organizativa_id_erp"] = df_excel["unidad_organizativa_id_erp"].str.strip()
-        df_excel["nombre"] = df_excel["nombre"].str.strip()
+        df_excel["unidad_organizativa_id_erp"] = df_excel["unidad_organizativa_id_erp"].astype(str).str.strip()
+        df_excel["nombre"] = df_excel["nombre"].astype(str).str.strip()
         
-        df_filtered = df_excel.dropna()
 
-        duplicados_unidad_erp = df_filtered.duplicated(subset='unidad_organizativa_id_erp', keep=False)
-        duplicados_nombre = df_filtered.duplicated(subset='nombre', keep=False)
+        duplicados_unidad_erp = df_excel.duplicated(subset='unidad_organizativa_id_erp', keep=False)
+        duplicados_nombre = df_excel.duplicated(subset='nombre', keep=False)
    
         # Filtrar DataFrame original
-        resultado = df_filtered[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
-        duplicados = df_filtered[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        resultado = df_excel[~(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
+        duplicados = df_excel[(duplicados_unidad_erp | duplicados_nombre)].to_dict(orient='records')
         
         cantidad_duplicados = len(duplicados)
         
@@ -119,9 +120,7 @@ class Direccion:
                                 "direccion_existentes":{'datos':unidad_organizativas_existentes,'mensaje':DireccionMensaje.EXCEPCION_DATOS_UNICOS.value} if len(unidad_organizativas_existentes) > 0 else []
                             }
                         },
-                        'estado':{
-                            'id':estado_id
-                        }
+                        'estado':estado_id
                     }
 
                 return log_transaccion_registro_unidad_organizativa
@@ -403,9 +402,9 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_registradas = len(novedades_unidad_organizativa)
             if cantidad_unidad_organizativa_registradas > 0:
-                # insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
-                # session.execute(insertar_informacion)
-                # session.commit()
+                insertar_informacion = insert(ProyectoUnidadOrganizativa,novedades_unidad_organizativa)
+                session.execute(insertar_informacion)
+                session.commit()
                 return {'mensaje': f'Se han realizado {cantidad_unidad_organizativa_registradas} registros exitosos.' if cantidad_unidad_organizativa_registradas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_registradas}) Unidad Organizativa exitosamente.'}
             return "No se han registrado datos"
         except SQLAlchemyError as e:
@@ -418,8 +417,8 @@ class Direccion:
         try:
             cantidad_unidad_organizativa_actualizadas = len(actualizacion_gerencia_unidad_organizativa)
             if cantidad_unidad_organizativa_actualizadas > 0:
-                # session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
-                # session.commit()
+                session.bulk_update_mappings(ProyectoUnidadOrganizativa, actualizacion_gerencia_unidad_organizativa)
+                session.commit()
                 return {'mensaje': f'Se han actualizado {cantidad_unidad_organizativa_actualizadas} Unidad Organizativa exitosamente.' if cantidad_unidad_organizativa_actualizadas > 1 else  f'Se ha registrado una ({cantidad_unidad_organizativa_actualizadas}) Unidad Organizativa exitosamente.'}
 
             return "No se han actualizado datos"
