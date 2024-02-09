@@ -599,11 +599,11 @@ class Proyectos:
                         'err':str(e)}
         
 
-    def actualizar_informacion(self, actualizar_proyectos):
+    def actualizar_informacion(self, actualizar_proyectos:pd.DataFrame):
         try:
             
-            actualizacion_proyectos_respuesta = actualizar_proyectos['respuesta']
-            num_proyectos = len(actualizacion_proyectos_respuesta)
+            proyectos_para_actualizar = actualizar_proyectos['respuesta']
+            num_proyectos = len(proyectos_para_actualizar)
             
             if num_proyectos > 0  :
                 actualizacion_proyectos = actualizar_proyectos['log']

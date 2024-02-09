@@ -482,11 +482,6 @@ class Gerencia:
         
         return gerencia_mapeo_resultado
     
-    def procesar_datos_minuscula(self,datos):
-        df = pd.DataFrame(datos)
-        df[['unidad_gerencia_id_erp', 'nombre']] = df[['unidad_gerencia_id_erp', 'nombre']].apply(lambda x: x.str.lower())
-        return df.to_dict(orient='records')
-
     
         # obtengo las excepciones del usuario me esta enviando informacion que debe ser unica y la filtro lo que me viene en la bd contra lo que me envia el usuario
     # y le devuelvo la informacion
