@@ -1,3 +1,6 @@
+
+
+
 from app.proyectos.model.proyectos import ModeloProyectos
 from app.parametros.ceco.model.ceco_model import ProyectoCeco
 from app.parametros.estado.model.estado_model import ProyectoEstado
@@ -83,7 +86,7 @@ class Proyectos:
     def transacciones(self):
         id_estado = self.proceso_sacar_estado()
         # validacion_contenido = self.comparacion_existe_datos(self.proyectos_existentes)
- 
+
         if self.existen_proyectos_excel():
             
             lista_insert = self.obtener_proyectos_registro()
@@ -108,11 +111,11 @@ class Proyectos:
         
             return log_transaccion_registro_proyecto
         
+        gestor_excel = GestorExcel()
         
-        dato_estado = id_estado
+        dato_estado = gestor_excel.transformacion_estados(self.__proyectos_excel_duplicada)
         dato_estado.insert(0, 0)
         dato_estado = list(set(dato_estado))
-        
         return  { 
                     'mensaje':GlobalMensaje.NO_HAY_INFORMACION.value,
                     'duplicados':{'datos':self.__proyectos_excel_duplicada['duplicados'] ,'mensaje':MensajeAleratGerenica.mensaje(self.__proyectos_excel_duplicada['cantidad_duplicados'])} if len(self.__proyectos_excel_duplicada['duplicados']) else [],
@@ -146,9 +149,9 @@ class Proyectos:
     def __proceso_de_proyectos_estructuracion(self):
         
         df = pd.read_excel(self.__file.file)
-        
-        df = df.dropna()
         # Imprimir las columnas reales del DataFrame
+        df_excel = df.dropna()
+        
         df.columns = df.columns.str.strip()
         
         selected_columns = ["ID proyecto",
@@ -194,8 +197,6 @@ class Proyectos:
 
         duplicados_id_proyecto_erp = df_excel.duplicated(subset='ceco_id', keep=False)
         # Filtrar DataFrame original
-        
-        
         resultado = df_excel[~(duplicados_id_proyecto_erp)].to_dict(orient='records')
         
         duplicados = df_excel[(duplicados_id_proyecto_erp)].to_dict(orient='records')
@@ -298,9 +299,6 @@ class Proyectos:
             
             resultado_final = filtro_personalizado_subset[~filtro_personalizado_subset.isin(df_obtener_proyectos_existentes_columnas_requeridas_subset.to_dict('list')).all(1)]
           
-            if resultado_final.empty:
-                {'respuesta': [], 'estado': 0} 
-                
             actualizacion_proyectos = resultado_final.to_dict(orient='records')
             actualizacion_proyectos_log = resultado_final[['nombre','contrato']].to_dict(orient='records')
             return {'respuesta':resultado_final,'log':actualizacion_proyectos_log,'estado':2} if len(actualizacion_proyectos) > 0 else {'respuesta':actualizacion_proyectos,'estado':0}
@@ -308,6 +306,7 @@ class Proyectos:
         return {'respuesta': [], 'estado': 0}  
     
     def obtener_proyectos_registro(self):
+        
             if len(self.proyectos_existentes) == 0:
                 df_proyectos = pd.DataFrame(self.__proyectos)
                 proyectos_condicion = df_proyectos.apply(lambda col: col != 0)
@@ -333,12 +332,9 @@ class Proyectos:
                     ), axis=1)
                 ]
                 
-                
-                if obtener_ceco_registro.empty:
-                    return {'respuesta': [], 'estado': 0}
- 
                 obtner_respuesta_registro = obtener_ceco_registro.to_dict(orient='records')
                 log_obtner_respuesta_registro = obtener_ceco_registro[['nombre','contrato']].to_dict(orient='records')
+                
                 return {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':1} if len(obtner_respuesta_registro) > 0 else {'respuesta':obtner_respuesta_registro,'log':log_obtner_respuesta_registro,'estado':0}
         
             return {'respuesta': [], 'estado': 0}
@@ -365,8 +361,6 @@ class Proyectos:
                     how='inner',
                     on=columnas_requeridas
                 )
-                if no_sufren_cambios.empty:
-                    return {'respuesta': [], 'estado': 0}
                 
                 proyectos_sin_cambio = no_sufren_cambios[['nombre','contrato']].to_dict(orient='records')
                 conteo_proyectos_sin_cambios = len(proyectos_sin_cambio)
@@ -607,7 +601,9 @@ class Proyectos:
             
             if num_proyectos > 0  :
                 actualizacion_proyectos = actualizar_proyectos['log']
-                session.bulk_update_mappings(ModeloProyectos, actualizacion_proyectos_respuesta)
+                actualizacion = proyectos_para_actualizar.to_dict(orient='records')
+             
+                session.bulk_update_mappings(ModeloProyectos, actualizacion)
                 session.commit()
                 return {    
                         'actualizacion':actualizacion_proyectos,
