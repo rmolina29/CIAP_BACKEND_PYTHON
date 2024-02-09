@@ -346,9 +346,11 @@ class Proyectos:
                 df_proyectos = pd.DataFrame(self.__proyectos)
                 df_obtener_proyectos_existentes = pd.DataFrame(self.proyectos_existentes_por_estado)
                 
+                # selecciono las columnas y las paso a string
                 df_proyectos['fecha_inicio'] = df_proyectos['fecha_inicio'].astype(str)
                 df_obtener_proyectos_existentes['fecha_inicio'] = df_obtener_proyectos_existentes['fecha_inicio'].astype(str)
                 
+                # selecciono las columnas y las paso a string
                 df_proyectos['fecha_final'] = df_proyectos['fecha_final'].astype(str)
                 df_obtener_proyectos_existentes['fecha_final'] = df_obtener_proyectos_existentes['fecha_final'].astype(str)
 
@@ -440,6 +442,7 @@ class Proyectos:
           
         return {'respuesta':  {'exepcion':obtener_monto, 'mensaje':mensaje},'estado':3}
     
+    # funcion que llama a atrapar excepciones para enviarle la columnas a verificar y el respectivo mensaje de alerta
     def obtener_montos_invalidas(self):
         obtener_excepcion_fechas = self.atrapar_excepciones('valor_inicial','valor_final','Por favor, verifique que los montos de valor inicial y final sean superior a 0.')
         return obtener_excepcion_fechas
@@ -449,12 +452,15 @@ class Proyectos:
         obtener_fecha_invalida = self.atrapar_excepciones('fecha_inicio','fecha_final','Por favor, verifique que los campos de fecha tengan el formato indicado. (2024-01-20)')
         return obtener_fecha_invalida
     
+    # en esta funcion se obtiene el id del usuario, le enviamos la identificacion del usuario el cual a traves del query me los regresa
     def obtener_usuario(self,proyecto):
         identificacion = proyecto['identificacion']
         usuario = self.encontrar_id_usuario(int(identificacion))['id_usuario']
         # Verificar si el valor es un número y no es NaN
         return usuario if usuario else 0
 
+    #  en esta consulta obtengo del excel de la unidad_gerencia_id y unidad_organizativa_id, el cual me gresara informacion
+    #  dependiendo si existe una relacion entre ellas me retornara en este caso si existe una relacion entre ellas el id, sino me retornan un 0.
     def obtener_ids_unidad_gerencia_organizativa(self,proyecto):
         unidad_gerencia_id = proyecto['unidad_gerencia_id']
         unidad_organizativa_id = proyecto['unidad_organizativa_id']
@@ -481,6 +487,7 @@ class Proyectos:
         return self.validar_valores(valor_inicial,valor_final)
 
     def procesar_proyecto(self, proyecto):
+        
         unidades_administrativas = self.obtener_ids_unidad_gerencia_organizativa(proyecto)
         obtener_fechas = self.obtener_estructuracion_fechas(proyecto)
         monto = self.obtener_valores_proyectos(proyecto)
@@ -622,26 +629,36 @@ class Proyectos:
         return id_gerente_encargado
     
     def ids_unidad_organizativas(self, id_unidad_gerencia, id_unidad_organizativa):
+        # Creamos alias para las tablas de ProyectoUnidadOrganizativa y ProyectoUnidadGerencia
         unidad_organizativa_alias = aliased(ProyectoUnidadOrganizativa)
         unidad_gerencia_alias = aliased(ProyectoUnidadGerencia)
 
+        # Ejecutamos la consulta
         result = (
             session.query(
+                # Seleccionamos los campos que deseamos obtener, dándoles alias para facilitar su manipulación
                 unidad_organizativa_alias.id.label('unidad_organizativa_id_erp'),
                 unidad_gerencia_alias.id.label('unidad_gerencia_id_erp')
             )
+            # Realizamos una unión (join) entre las dos tablas utilizando los alias creados
             .join(unidad_gerencia_alias, unidad_gerencia_alias.id == unidad_organizativa_alias.gerencia_id)
+            # Aplicamos filtros a la consulta para limitar los resultados
             .filter(
-                unidad_organizativa_alias.unidad_organizativa_id_erp == id_unidad_organizativa,
-                unidad_gerencia_alias.unidad_gerencia_id_erp == id_unidad_gerencia
+                unidad_organizativa_alias.unidad_organizativa_id_erp == id_unidad_organizativa,  # Filtramos por el id de la unidad organizativa
+                unidad_gerencia_alias.unidad_gerencia_id_erp == id_unidad_gerencia  # Filtramos por el id de la unidad gerencial
             )
+            # Obtenemos solo el primer resultado
             .first()
         )
 
+        # Verificamos si se encontraron resultados
         if result:
+            # Convertimos el resultado a un diccionario y lo devolvemos
             return result._asdict()
         else:
+            # Si no se encontraron resultados, devolvemos None
             return None
+
         
     def obtener_estado_proyecto_cliente(self, id_erp_cliente):
              return (
