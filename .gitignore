@@ -197,3 +197,8 @@ myenv/share/jupyter/nbextensions/jupyterlab-plotly/extension.js
 myenv/share/jupyter/nbextensions/jupyterlab-plotly/index.js
 myenv/share/jupyter/nbextensions/jupyterlab-plotly/index.js.LICENSE.txt
 myenv/share/man/man1/ipython.1
+app/__init__.py
+.vscode/settings.json
+.vscode/extensions.json
+*.json
+app/__init__.py

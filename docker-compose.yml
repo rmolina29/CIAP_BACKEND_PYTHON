@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  app:
+    image: python:latest
+    container_name: microservice_ciap_python
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: sh -c "while true; do sleep 3600; done"
