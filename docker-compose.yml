@@ -1,11 +1,28 @@
+# version: '3.8'
+
+# services:
+#   app:
+#     image: python:latest
+#     container_name: microservice_ciap_python
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - .:/app
+#     command: sh -c "while true; do sleep 3600; done"
+
+
+
 version: '3.8'
 
 services:
-  app:
-    image: python:latest
+  fastapi-app:
     container_name: microservice_ciap_python
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      
     ports:
       - "8000:8000"
     volumes:
       - .:/app
-    command: sh -c "while true; do sleep 3600; done"
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
